@@ -411,7 +411,9 @@ func (h *Host) lostRelay(err error) {
 // welcomed us (so backoff can reset) and why it ended.
 func (h *Host) session(ctx context.Context) (welcomed bool, err error) {
 	h.mu.Lock()
-	u := fmt.Sprintf("%s/ws/host/%s?key=%s", wsOrigin(h.origin), h.code, url.QueryEscape(h.key))
+	// origin tells the relay which address phones should use for the join
+	// link; it matters when the relay is a local wrangler dev.
+	u := fmt.Sprintf("%s/ws/host/%s?key=%s&origin=%s", wsOrigin(h.origin), h.code, url.QueryEscape(h.key), url.QueryEscape(h.origin))
 	h.status = StatusConnecting
 	h.mu.Unlock()
 	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)

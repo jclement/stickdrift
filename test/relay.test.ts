@@ -139,4 +139,26 @@ describe("relay", () => {
     host.ws.send(JSON.stringify({ t: "signal", pad: 0, data: { type: "answer", sdp: "v=0 answer" } }));
     expect(await pad.next("signal")).toMatchObject({ data: { type: "answer", sdp: "v=0 answer" } });
   });
+
+  it("uses the host's origin parameter for join links, and only a sane one", async () => {
+    const code = randomCode();
+    const host = await open(`/ws/host/${code}?key=${KEY}&origin=${encodeURIComponent("http://192.168.1.20:8787")}`);
+    expect((await host.next("welcome")).joinUrl).toBe(`http://192.168.1.20:8787/j/${code}`);
+    const code2 = randomCode();
+    const evil = await open(`/ws/host/${code2}?key=${KEY}&origin=${encodeURIComponent("javascript:alert(1)//")}`);
+    expect((await evil.next("welcome")).joinUrl).toBe(`https://controller.test/j/${code2}`);
+  });
+
+  it("lets a host clear an avatar with an empty string", async () => {
+    const code = randomCode();
+    const host = await open(`/ws/host/${code}?key=${KEY}`);
+    await host.next("welcome");
+    const pad = await open(`/ws/pad/${code}?device=phone-ffffffff`);
+    await pad.next("setup");
+    host.ws.send(JSON.stringify({ t: "pad", pad: 0, avatar: "data:image/png;base64,iVBORw0KGgo=" }));
+    expect((await pad.next("setup")).avatar).toBe("data:image/png;base64,iVBORw0KGgo=");
+    host.ws.send(JSON.stringify({ t: "pad", pad: 0, avatar: "" }));
+    expect((await pad.next("setup")).avatar).toBe("");
+  });
 });
+

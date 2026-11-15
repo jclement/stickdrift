@@ -323,7 +323,7 @@ body {
     radial-gradient(120% 90% at 30% 10%, rgb(255 255 255 / 0.3), transparent 50%),
     var(--c);
   box-shadow: 0 14px 30px rgb(0 0 0 / 0.5), inset 0 -8px 0 rgb(0 0 0 / 0.2);
-  font-size: 54px;
+  font-size: min(54px, calc(var(--size) * 0.36));
   font-weight: 700;
   color: white;
   text-shadow: 0 3px 10px rgb(0 0 0 / 0.35);

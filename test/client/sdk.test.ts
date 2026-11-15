@@ -39,7 +39,7 @@ describe("StickDriftHost", () => {
     hosts.push(host);
     host.on("open", (_code, url) => opened.push(url));
     const ws = FakeSocket.latest();
-    expect(String(ws.url)).toMatch(/^wss:\/\/relay\.test\/ws\/host\/[A-Z]{5}\?key=[0-9a-f]{32}$/);
+    expect(String(ws.url)).toMatch(/^wss:\/\/relay\.test\/ws\/host\/[A-Z]{5}\?key=[0-9a-f]{32}&origin=https%3A%2F%2Frelay\.test$/);
     ws.open();
     expect(ws.messages("config")[0]).toMatchObject({ title: "T", look: { layout: "paddle" }, open: true, p2p: true });
     ws.json({ t: "welcome", code: "QWERT", joinUrl: "https://relay.test/j/QWERT", version: 1, pads: [] });

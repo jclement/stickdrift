@@ -247,6 +247,7 @@ export class StickDriftHost {
     const url = new URL(`/ws/host/${this.code}`, this.origin);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.searchParams.set("key", this.key);
+    url.searchParams.set("origin", this.origin); // so join links work under wrangler dev
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";
     this.ws = ws;

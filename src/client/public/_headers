@@ -7,6 +7,9 @@
 /sdk.js
   Access-Control-Allow-Origin: *
 
+/sdk.d.ts
+  Access-Control-Allow-Origin: *
+
 /*.html
   Cache-Control: no-cache
 

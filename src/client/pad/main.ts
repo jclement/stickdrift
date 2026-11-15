@@ -513,8 +513,11 @@ $("update").addEventListener("click", () => applyUpdateIfQuiet(true));
 // ---- Start ----
 
 /** preview renders a layout with no connection, for the homepage gallery. */
+let previewExtras: Partial<PadLook> = {};
+
 function preview(layout: string, colour: string, custom: CustomLayout | null, theme: Theme | null) {
   look = { layout, color: colour, label: "PREVIEW", swap: false, custom: custom ?? undefined, theme: theme ?? undefined };
+  for (const [k, v] of Object.entries(previewExtras)) if (v !== undefined && !(typeof v === "object" && !Object.keys(v).length)) (look as Record<string, unknown>)[k] = v;
   layoutId = layout;
   padNumber = 0;
   document.body.classList.add("preview");
@@ -530,6 +533,14 @@ function start() {
   const previewLayout = params.get("preview");
   if (previewLayout) {
     const theme = cleanTheme({ style: params.get("style"), font: params.get("font"), shape: params.get("shape"), background: params.get("bg"), text: params.get("text") });
+    // label, banner, message and labels=A:JUMP,B:FIRE let docs show a
+    // relabelled controller without opening a room.
+    previewExtras = {
+      label: params.get("label") ?? undefined,
+      banner: params.get("banner") ?? undefined,
+      message: params.get("message") ?? undefined,
+      labels: Object.fromEntries((params.get("labels") ?? "").split(",").filter((p) => p.includes(":")).map((p) => p.split(":", 2).map((x) => x.slice(0, 12)))),
+    };
     preview(previewLayout, params.get("color") ?? "#ff4d6d", customFromHash(), theme);
     return;
   }

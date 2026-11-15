@@ -60,7 +60,7 @@ depends = ["lint", "test"]
 description = "Build and deploy to stickdrift.net (stamps a build id so phones self-update)"
 run = """
 export BUILD="$(git rev-parse --short HEAD)-$(date +%s)"
-bunx vite build && bunx vite build -c vite.sdk.config.ts && cp PROTOCOL.md dist/client/protocol.md
+bunx vite build && bunx vite build -c vite.sdk.config.ts && bun scripts/sdk-dts.ts && cp PROTOCOL.md dist/client/protocol.md
 bunx wrangler deploy --var BUILD:$BUILD
 """
 

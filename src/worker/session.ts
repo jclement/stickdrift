@@ -46,8 +46,8 @@ interface Room {
 
 /** Hard limits that keep a room from being abused. */
 const MAX_PADS_LIMIT = 64;
-/** Text limit: SDP offers with candidates run a few KB. */
-const MAX_TEXT_BYTES = 16384;
+/** Text limit: SDP offers run a few KB, and a look may carry a 24 KB avatar. */
+const MAX_TEXT_BYTES = 32 * 1024;
 /** A host that has been gone this long loses its claim on the code. */
 const HOST_CLAIM_TTL_MS = 30 * 60 * 1000;
 /** Rooms with no host are wiped after this long. */
@@ -74,7 +74,7 @@ export class Session extends DurableObject<Env> {
     const url = new URL(req.url);
     const code = url.searchParams.get("code") ?? "";
     if (url.searchParams.get("role") === "host") {
-      return this.acceptHost(code, url.searchParams.get("key") ?? "", url.origin);
+      return this.acceptHost(code, url.searchParams.get("key") ?? "", joinOrigin(url));
     }
     return this.acceptPad(url.searchParams.get("device") ?? "", url.searchParams.get("name") ?? undefined);
   }
@@ -247,6 +247,13 @@ export class Session extends DurableObject<Env> {
   }
 
   async webSocketClose(ws: WebSocket, code: number): Promise<void> {
+    // Complete the closing handshake: without this a client that closes
+    // first waits for a reply that never comes.
+    try {
+      ws.close(code >= 1000 && code !== 1005 && code !== 1006 && code < 5000 ? code : 1000, "bye");
+    } catch {
+      // Already closed.
+    }
     const a = ws.deserializeAttachment() as Attachment | null;
     if (!a) return;
     if (a.role === "pad") {
@@ -327,7 +334,9 @@ function cleanLook(l: PadLook): PadLook {
   if (typeof l.swap === "boolean") out.swap = l.swap;
   if (typeof l.diagonals === "boolean") out.diagonals = l.diagonals;
   if (typeof l.banner === "string") out.banner = l.banner.slice(0, 16);
-  if (l.avatar !== undefined) {
+  if (l.avatar === "") {
+    out.avatar = ""; // an empty string clears a previously set avatar
+  } else if (l.avatar !== undefined) {
     const avatar = cleanAvatar(l.avatar);
     if (avatar) out.avatar = avatar;
   }
@@ -344,4 +353,14 @@ function cleanLook(l: PadLook): PadLook {
     for (const [k, v] of Object.entries(l.labels)) if (typeof v === "string") (out.labels as Record<string, string>)[k] = v.slice(0, 10);
   }
   return out;
+}
+
+/** joinOrigin is the origin phones should use. Normally the request's own;
+ *  a host may pass ?origin= (http/https, host and port only), which matters
+ *  under `wrangler dev`, where the request URL is rewritten to the public
+ *  route and a LAN phone could never reach it. The value only ever goes back
+ *  to that same host, in its welcome message. */
+function joinOrigin(url: URL): string {
+  const o = url.searchParams.get("origin") ?? "";
+  return /^https?:\/\/[A-Za-z0-9.\-[\]:]{1,100}$/.test(o) ? o : url.origin;
 }
