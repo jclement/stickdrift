@@ -1,8 +1,9 @@
 # Avatars and banners
 
 With four phones in a room, every player's first question is "which one am
-I?" Answer it on the phone itself: give each pad its player colour, a name,
-a **banner** and an **avatar**.
+I?", usually asked while their character walks off a ledge. Answer it on
+the phone itself: give each pad its player colour, a name, a **banner** and
+an **avatar**.
 
 ```js
 host.on("join", (pad) => {

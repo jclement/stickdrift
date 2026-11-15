@@ -1,7 +1,8 @@
 # Concepts
 
 Six ideas cover everything: rooms, hosts, pads, looks, phases, and the two
-paths input can take.
+paths input can take. That's the whole mental model. There is no
+enterprise edition.
 
 ## Rooms
 

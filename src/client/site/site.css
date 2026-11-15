@@ -109,3 +109,64 @@ pre { background: #0b0a12; border: 1px solid var(--color-line); border-radius: 1
 
 /* Small buttons for toolbars (designer, docs demos). */
 .btn-sm { padding: .45rem .8rem; border-radius: 10px; font-size: .75rem; }
+
+/* ---- Homepage launch furniture ---- */
+.eyebrow { font-family: var(--font-display); font-size: .75rem; letter-spacing: .35em; color: var(--color-hot); margin-bottom: .5rem; }
+.section-title { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.9rem, 4.5vw, 3rem); line-height: 1.02; color: white; }
+.launch-badge {
+  display: inline-flex; align-items: center; gap: .5rem; padding: .35rem .8rem; border-radius: 999px;
+  font-family: var(--font-display); font-size: .7rem; font-weight: 600; letter-spacing: .18em; color: var(--color-zap);
+  border: 1px solid rgb(255 190 11 / 0.35); background: rgb(255 190 11 / 0.08);
+}
+.launch-badge .dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--color-go); box-shadow: 0 0 10px var(--color-go); animation: blink 1.6s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+
+/* The joke: the word "controller." and the logo's DRIFT wander off, slowly,
+   like a worn stick. Everything else on the page holds perfectly still. */
+.drift-word { display: inline-block; animation: drift 7s ease-in-out infinite; }
+.brand-mark .drifty { display: inline-block; animation: drift-small 9s ease-in-out infinite; }
+@keyframes drift { 0%, 100% { transform: translate(0, 0); } 30% { transform: translate(6px, 1px) rotate(.4deg); } 60% { transform: translate(-3px, -1px); } }
+@keyframes drift-small { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(2px); } }
+
+.hero-caption { margin-top: 1.4rem; text-align: center; font-size: .8rem; color: var(--color-muted); }
+
+.ticker { overflow: hidden; border-block: 1px solid var(--color-line); background: rgb(255 255 255 / 0.02); padding: .8rem 0; }
+.ticker-track { display: flex; gap: 2.5rem; width: max-content; animation: ticker 40s linear infinite; }
+.ticker span { font-family: var(--font-display); font-weight: 700; font-size: .85rem; letter-spacing: .2em; color: var(--color-muted); white-space: nowrap; }
+.ticker span::after { content: "✦"; margin-left: 2.5rem; color: var(--color-hot); }
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+.stats { display: grid; gap: 1px; grid-template-columns: repeat(2, minmax(0, 1fr)); background: var(--color-line); border: 1px solid var(--color-line); border-radius: 20px; overflow: hidden; }
+@media (min-width: 900px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stat { background: var(--color-ink); padding: 1.4rem 1.2rem; display: flex; flex-direction: column; gap: .4rem; }
+.stat b { font-family: var(--font-display); font-weight: 700; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1; color: white; }
+.stat small { font-size: .45em; margin-left: .15em; color: var(--color-hot); }
+.stat span { font-size: .8rem; color: var(--color-muted); }
+
+.step-n { font-family: var(--font-display); font-size: 3rem; font-weight: 700; line-height: 1; }
+
+.drift-demo { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.drift-demo figure { margin: 0; padding: 1.4rem 1rem; border-radius: 18px; border: 1px solid var(--color-line); background: rgb(255 255 255 / 0.03); display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: center; }
+.drift-demo figcaption { display: flex; flex-direction: column; gap: .3rem; font-size: .8rem; color: var(--color-muted); }
+.drift-demo figcaption b { font-family: var(--font-display); color: white; font-size: .95rem; }
+.drift-demo code { color: var(--color-zap); }
+.stick-well { position: relative; width: 7rem; height: 7rem; border-radius: 50%; background: radial-gradient(circle, #1b1828, #0b0a12); border: 1px solid var(--color-line); box-shadow: inset 0 6px 20px rgb(0 0 0 / .6); }
+.stick-well.good { box-shadow: inset 0 6px 20px rgb(0 0 0 / .6), 0 0 30px rgb(56 217 150 / .15); }
+.stick-knob { position: absolute; left: 50%; top: 50%; width: 3.2rem; height: 3.2rem; margin: -1.6rem 0 0 -1.6rem; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a4560, #1f1c2c); border: 1px solid rgb(255 255 255 / .12); box-shadow: 0 6px 14px rgb(0 0 0 / .5); }
+.stick-well.good .stick-knob { background: radial-gradient(circle at 35% 30%, #5ef0b0, #1f8f5f); }
+.stick-knob.wobbly { animation: wobble 5s ease-in-out infinite; }
+@keyframes wobble { 0%, 100% { transform: translate(6px, -2px); } 35% { transform: translate(11px, 2px); } 70% { transform: translate(4px, 4px); } }
+
+.bars { display: grid; gap: 1rem; max-width: 46rem; }
+.bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .35rem 1rem; align-items: center; }
+.bar-label { font-size: .85rem; }
+.bar b { font-family: var(--font-display); color: white; font-size: .95rem; text-align: right; }
+.bar-fill { grid-column: 1 / -1; grid-row: 2; height: .7rem; border-radius: 999px; background: rgb(255 255 255 / .05); position: relative; overflow: hidden; }
+.bar-fill::before { content: ""; position: absolute; inset: 0 auto 0 0; width: max(var(--w), .5rem); border-radius: inherit; background: var(--c); box-shadow: 0 0 16px var(--c); }
+
+.final-cta { text-align: center; padding: 3.5rem 1.5rem; border-radius: 28px; border: 1px solid var(--color-line);
+  background: radial-gradient(70% 90% at 50% 0%, rgb(255 77 109 / .22), transparent 70%), radial-gradient(60% 80% at 50% 120%, rgb(58 134 255 / .18), transparent 70%), rgb(255 255 255 / .02); }
+
+@media (prefers-reduced-motion: reduce) {
+  .drift-word, .brand-mark .drifty, .ticker-track, .stick-knob.wobbly, .launch-badge .dot { animation: none; }
+}

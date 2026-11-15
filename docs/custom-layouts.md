@@ -1,7 +1,8 @@
 # Custom layouts
 
 Set `layout: "custom"` and send a list of controls in `custom`. The phone
-builds it on the spot; change it mid-game and every phone follows. The
+builds it on the spot; change it mid-game and every phone follows (use
+this power responsibly, or at least amusingly). The
 fastest way to make one is the [layout designer](/designer): drag controls
 onto a phone, then copy the JSON.
 

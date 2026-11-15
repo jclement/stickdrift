@@ -2,7 +2,8 @@
 
 Two host libraries wrap the protocol, peer-to-peer WebRTC included. Both
 give you the same model: open a room, set looks, and read each pad once per
-game frame with latched presses.
+game frame with latched presses. Pick the one in the language you were
+going to use anyway.
 
 ## JavaScript (browser)
 

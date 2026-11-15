@@ -1,6 +1,7 @@
 # Haptics
 
-Buzz a player's phone when they get hit, score, or it's their turn.
+Buzz a player's phone when they get hit, score, or it's their turn. On
+Android, anyway. iPhones will politely ignore you; more on that below.
 
 ```js
 host.haptic(pad, 40);                 // one 40 ms buzz

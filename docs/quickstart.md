@@ -1,8 +1,9 @@
 # Quickstart
 
-Phones controlling your game in five minutes. A game is the **host**: it
-opens a room, shows a QR code, and reads input from every phone (**pad**)
-that scans it. No app, no accounts, no server of your own.
+Phones controlling your game in five minutes, four if you skip reading
+this sentence. A game is the **host**: it opens a room, shows a QR code, and
+reads input from every phone (**pad**) that scans it. No app, no accounts,
+no server of your own.
 
 ## In the browser
 

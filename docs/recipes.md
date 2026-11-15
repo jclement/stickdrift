@@ -1,6 +1,7 @@
 # Recipes
 
-Patterns that come up in nearly every game.
+Patterns that come up in nearly every game, solved once so you don't have
+to solve them at 2 a.m. the night before game night.
 
 ## Lobby, gameplay, spectator, results
 

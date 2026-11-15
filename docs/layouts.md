@@ -1,8 +1,9 @@
 # Layouts
 
 Ten built-in controllers, each laid out from fractions of the screen so it
-fits every phone. Set one with `look.layout`. These previews are the real
-controller page: press them.
+fits every phone, from the tiny one to the one with the cracked corner. Set
+one with `look.layout`. These previews are the real controller page: press
+them. They don't drift. We checked.
 
 ## Classic: `dpad-ab`
 

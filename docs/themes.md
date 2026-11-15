@@ -1,6 +1,7 @@
 # Themes
 
-Make the phone look like your game. A theme is a handful of presets plus
+Make the phone look like your game instead of like a web page someone made
+in a hurry. A theme is a handful of presets plus
 hex colours, set in `look.theme`; the player colour (`look.color`) then
 tints buttons, glows and the HUD.
 

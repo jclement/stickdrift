@@ -1,5 +1,7 @@
 # FAQ
 
+Questions people ask, answered before they finish asking.
+
 ## How do players get full screen on an iPhone?
 
 **Add to Home Screen.** Safari doesn't let a web page go full screen, so

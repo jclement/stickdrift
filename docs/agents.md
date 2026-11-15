@@ -3,7 +3,9 @@
 You are adding phone controllers to a game. Players scan a QR code and
 their phone becomes a gamepad; your game reads their input every frame.
 Follow these steps in order. Each has a check, so you know it worked before
-moving on. Full docs: https://stickdrift.net/docs (raw
+moving on, rather than announcing success and hoping. (StickDrift is named
+after worn analogue sticks drifting; nothing here drifts, and neither
+should your integration.) Full docs: https://stickdrift.net/docs (raw
 Markdown under `/docs/*.md`, index at `/llms.txt`).
 
 ## Facts to rely on
