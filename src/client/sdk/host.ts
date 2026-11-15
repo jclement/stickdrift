@@ -7,12 +7,16 @@
 //   function frame() { for (const [n, p] of host.poll()) if (p.pressed & 1 << 4) jump(n); }
 import {
   Button,
+  FRAME_PING,
+  ICE_SERVERS,
   PING,
   PONG,
   decodeFrame,
   emptyState,
   randomCode,
+  seqNewer,
   type ButtonName,
+  type Signal,
   type HostMessage,
   type PadInfo,
   type PadLook,
@@ -30,6 +34,7 @@ export interface HostOptions {
   title?: string;
   maxPads?: number;
   look?: PadLook; // default layout and styling for every pad
+  p2p?: boolean; // accept WebRTC data channels from phones (default true)
 }
 
 /** One pad as the host tracks it. */
@@ -39,6 +44,8 @@ export interface Pad {
   connected: boolean;
   state: PadState;
   rtt?: number;
+  via?: "p2p" | "relay"; // the path the phone reports using
+  p2p: boolean; // a data channel to this phone is open
   frames: number; // input frames received, for rate displays
   presses: number; // bits pressed since the last poll (latched)
   releases: number;
@@ -75,6 +82,8 @@ export class ControllerHost {
   private backoff = 250;
   private pingAt = 0;
   private timer: ReturnType<typeof setInterval> | undefined;
+  private peers = new Map<number, RTCPeerConnection>();
+  private fresh = new Set<number>(); // pads whose next frame resets sequencing
 
   constructor(private opts: HostOptions = {}) {
     this.origin = opts.origin ?? new URL(import.meta.url).origin;
@@ -128,6 +137,7 @@ export class ControllerHost {
   }
 
   close() {
+    for (const pc of this.peers.values()) pc.close();
     this.closed = true;
     clearInterval(this.timer);
     this.ws?.close();
@@ -144,7 +154,8 @@ export class ControllerHost {
     this.ws = ws;
     ws.onopen = () => {
       this.backoff = 250;
-      this.send({ t: "config", title: this.opts.title, maxPads: this.opts.maxPads, look: this.opts.look, open: true });
+      const p2p = this.opts.p2p !== false && typeof RTCPeerConnection !== "undefined";
+      this.send({ t: "config", title: this.opts.title, maxPads: this.opts.maxPads, look: this.opts.look, open: true, p2p });
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") return this.onFrame(ev.data as ArrayBuffer);
@@ -190,10 +201,14 @@ export class ControllerHost {
         const p = this.pads.get(m.pad);
         if (p) {
           p.rtt = m.ms;
+          p.via = m.via;
           this.emit("rtt", p);
         }
         break;
       }
+      case "signal":
+        void this.onSignal(m.pad, m.data);
+        break;
       case "error":
         this.emit("error", m.code, m.message);
         break;
@@ -202,7 +217,8 @@ export class ControllerHost {
 
   private join(info: PadInfo) {
     const existing = this.pads.get(info.pad);
-    const p: Pad = existing ?? { pad: info.pad, device: info.device, connected: true, state: emptyState(), frames: 0, presses: 0, releases: 0 };
+    const p: Pad = existing ?? { pad: info.pad, device: info.device, connected: true, p2p: false, state: emptyState(), frames: 0, presses: 0, releases: 0 };
+    this.fresh.add(info.pad); // a (re)joined phone restarts its sequence numbers
     p.connected = true;
     p.device = info.device;
     this.pads.set(info.pad, p);
@@ -216,17 +232,64 @@ export class ControllerHost {
     p.connected = false;
   }
 
-  private onFrame(buf: ArrayBuffer) {
+  private onFrame(buf: ArrayBuffer, viaPad?: number) {
     const f = decodeFrame(buf);
     if (!f) return;
+    if (viaPad !== undefined) f.pad = viaPad; // data channel frames carry no pad number
     const p = this.pads.get(f.pad);
     if (!p) return;
+    // Frames can arrive twice (P2P repeats, path switches) or late (UDP):
+    // only a newer snapshot counts.
+    if (this.fresh.delete(f.pad) === false && !seqNewer(f.state.seq, p.state.seq)) return;
     const prev = p.state;
     p.presses |= f.state.buttons & ~prev.buttons;
     p.releases |= prev.buttons & ~f.state.buttons;
     p.state = f.state;
     p.frames++;
     this.emit("input", p, prev);
+  }
+
+  // ---- WebRTC ----
+
+  /** onSignal answers a phone's offer and wires its data channel. */
+  private async onSignal(pad: number, s: Signal) {
+    if (s.type === "offer") {
+      this.peers.get(pad)?.close();
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      this.peers.set(pad, pc);
+      pc.onicecandidate = (ev) => this.send({ t: "signal", pad, data: { type: "candidate", candidate: ev.candidate ? ev.candidate.toJSON() : null } });
+      pc.ondatachannel = (ev) => {
+        const dc = ev.channel;
+        dc.binaryType = "arraybuffer";
+        dc.onopen = () => this.setP2P(pad, true);
+        dc.onclose = () => this.setP2P(pad, false);
+        dc.onmessage = (m) => {
+          const data = m.data as ArrayBuffer;
+          if (new Uint8Array(data)[0] === FRAME_PING) dc.send(data); // echo for the phone's RTT
+          else this.onFrame(data, pad);
+        };
+      };
+      await pc.setRemoteDescription({ type: "offer", sdp: s.sdp });
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      this.send({ t: "signal", pad, data: { type: "answer", sdp: answer.sdp ?? "" } });
+      return;
+    }
+    if (s.type === "candidate" && s.candidate) {
+      try {
+        await this.peers.get(pad)?.addIceCandidate(s.candidate);
+      } catch {
+        // Candidate for a connection we've since replaced.
+      }
+    }
+  }
+
+  private setP2P(pad: number, on: boolean) {
+    const p = this.pads.get(pad);
+    if (p) {
+      p.p2p = on;
+      this.emit("rtt", p);
+    }
   }
 
   private ping() {

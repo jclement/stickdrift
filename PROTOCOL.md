@@ -75,6 +75,37 @@ Analog sticks driving movement (`stick-ab`, `gamepad`, the left stick of
 `twin-stick`, `tilt`) also set the d-pad bits (8-way, past half deflection),
 so a game that only reads the d-pad works with every layout.
 
+## Peer-to-peer (WebRTC), relay as fallback
+
+If the host's `config` includes `"p2p": true`, phones (told via
+`setup.p2p`) offer a WebRTC data channel named `input`, **unordered with no
+retransmits**, and input goes over it whenever it is open; the relay
+WebSocket stays up for setup, control messages and as the fallback.
+
+Signalling rides the relay:
+
+| Direction | Message |
+|---|---|
+| pad -> host | `{"t":"signal","pad":3,"data":{"type":"offer","sdp":"…"}}` |
+| host -> pad | `{"t":"signal","pad":3,"data":{"type":"answer","sdp":"…"}}` |
+| both | `{"t":"signal",…,"data":{"type":"candidate","candidate":{…RTCIceCandidateInit…}}}` (`null` = end of candidates) |
+
+(The pad sends without `pad`; the relay adds it.) STUN is
+`stun:stun.cloudflare.com:3478`; there is no TURN, because the relay already is
+the fallback. Browsers advertise LAN addresses as mDNS `.local` names, so a
+host must resolve those.
+
+On the data channel:
+
+- Input frames are the same 16 bytes; byte 1 (pad) is 0, the host knows the
+  pad from the connection.
+- Phones repeat each change ~25 and ~80 ms later and re-send the current
+  snapshot every 250 ms, so lost packets can't leave a button stuck. Hosts
+  must ignore any frame whose `seq` is not newer than the last one applied
+  (16-bit wrap-aware: newer if `(a - b) & 0xffff` is in 1..32767), and reset
+  that tracking when a pad (re)joins.
+- `[2, 0, 0, 0, u32 timestamp]` (8 bytes) is a ping: echo it back unchanged.
+
 ## Looks
 
 A look is any subset of:

@@ -1,4 +1,5 @@
-// The phone controller app: join a room, hold a WebSocket open, show the
+// The phone controller app: join a room (WebRTC peer-to-peer when the game
+// supports it, the Cloudflare relay otherwise; see transport.ts), show the
 // layout the host asked for, and route every touch to the right control.
 //
 // Latency notes: pointer events are handled synchronously and a frame is
@@ -6,8 +7,9 @@
 // socket is binary; a screen wake lock and full screen keep the phone from
 // dozing or scrolling mid-game.
 import "./pad.css";
-import { PING, PONG, cleanCustom, cleanTheme, isCode, LAYOUTS, type CustomLayout, type PadLook, type Theme, type ToPadMessage } from "../../shared/protocol";
-import { Input } from "./input";
+import { cleanCustom, cleanTheme, isCode, LAYOUTS, type CustomLayout, type PadLook, type Theme, type ToPadMessage } from "../../shared/protocol";
+import { Input, describe } from "./input";
+import { Transport } from "./transport";
 import { build, swapPartner, type Built } from "./layouts";
 import type { Control } from "./controls";
 
@@ -39,7 +41,6 @@ function deviceId(): string {
 
 // ---- State ----
 
-let ws: WebSocket | null = null;
 let code = "";
 let look: PadLook = {};
 let layoutId = "dpad-ab";
@@ -47,43 +48,31 @@ let localOverride: string | null = null; // player's swap choice
 let built: Built | null = null;
 let padNumber = -1;
 let hostOnline = false;
-let backoff = 250;
-let pingSent = 0;
-let rttSamples: number[] = [];
 const owners = new Map<number, Control>(); // pointerId -> control
+let transport: Transport | null = null;
 
-const input = new Input((frame) => {
-  if (ws?.readyState === WebSocket.OPEN) ws.send(frame);
-});
+const input = new Input((frame) => transport?.sendFrame(frame));
 
 // ---- Connection ----
 
 function connect() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  const sock = new WebSocket(`${proto}://${location.host}/ws/pad/${code}?device=${deviceId()}`);
-  sock.binaryType = "arraybuffer";
-  ws = sock;
+  transport = new Transport(
+    `${proto}://${location.host}/ws/pad/${code}?device=${deviceId()}`,
+    onMessage,
+    (closeCode) => {
+      input.releaseAll();
+      if (closeCode === 4002) return showStatus("KICKED", "The host removed this controller.", true), false;
+      if (closeCode === 4003) return showStatus("ROOM FULL", "Every seat is taken.", true), false;
+      if (closeCode === 4004) return showStatus("NO SUCH ROOM", `Nothing is hosting ${code}. Check the code on the big screen.`, true), false;
+      if (closeCode === 4001) return false; // replaced by a newer tab on this phone
+      showStatus("RECONNECTING", `Room ${code}`);
+      return true;
+    },
+    onTransportChange,
+  );
   showStatus("CONNECTING", `Room ${code}`);
-  sock.onopen = () => {
-    backoff = 250;
-    input.resend();
-  };
-  sock.onmessage = (ev) => {
-    if (typeof ev.data !== "string") return;
-    if (ev.data === PONG) return onPong();
-    onMessage(JSON.parse(ev.data) as ToPadMessage);
-  };
-  sock.onclose = (ev) => {
-    if (ws !== sock) return;
-    ws = null;
-    input.releaseAll();
-    if (ev.code === 4002) return showStatus("KICKED", "The host removed this controller.", true);
-    if (ev.code === 4003) return showStatus("ROOM FULL", "Every seat is taken.", true);
-    if (ev.code === 4004) return showStatus("NO SUCH ROOM", `Nothing is hosting ${code}. Check the code on the big screen.`, true);
-    if (ev.code === 4001) return; // replaced by a newer tab on this phone
-    setTimeout(connect, backoff);
-    backoff = Math.min(backoff * 2, 3000);
-  };
+  transport.connect();
 }
 
 function onMessage(m: ToPadMessage) {
@@ -94,6 +83,7 @@ function onMessage(m: ToPadMessage) {
       layoutId = m.layout ?? "dpad-ab";
       applyLook();
       relayout();
+      input.resend();
       break;
     case "host":
       hostOnline = m.online;
@@ -106,26 +96,63 @@ function onMessage(m: ToPadMessage) {
   }
 }
 
-// ---- Latency ----
+// ---- HUD and debug panel ----
 
-function ping() {
-  if (ws?.readyState === WebSocket.OPEN) {
-    pingSent = performance.now();
-    ws.send(PING);
-  }
+/** onTransportChange refreshes the latency badge and the debug panel. */
+function onTransportChange() {
+  const t = transport;
+  if (!t) return;
+  const d = t.debug;
+  const rtt = t.bestRtt();
+  const via = d.path === "p2p" ? "P2P" : "RELAY";
+  hudRtt.textContent = rtt ? `${via} · ${Math.round(rtt)} ms` : via;
+  hudRtt.className = `chip rtt ${d.path === "p2p" ? "p2p " : ""}${rtt < 40 ? "good" : rtt < 90 ? "ok" : "bad"}`;
+  if (!debugPanel.classList.contains("hidden")) renderDebug();
 }
 
-function onPong() {
-  const ms = performance.now() - pingSent;
-  rttSamples = [...rttSamples.slice(-4), ms];
-  const avg = rttSamples.reduce((a, b) => a + b, 0) / rttSamples.length;
-  hudRtt.textContent = `${Math.round(avg)} ms`;
-  hudRtt.className = `chip rtt ${avg < 60 ? "good" : avg < 120 ? "ok" : "bad"}`;
-  if (rttSamples.length === 5 && ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ t: "rtt", ms: avg }));
-    rttSamples = rttSamples.slice(-2);
-  }
+const debugPanel = $("debug");
+
+function renderDebug() {
+  const t = transport;
+  const d = t?.debug;
+  const fmt = (s: { last: number; avg: number; p90: number; count: number }) =>
+    s.count ? `${s.last.toFixed(0)} / ${s.avg.toFixed(0)} / ${s.p90.toFixed(0)} ms` : "no samples";
+  const held = describe(input.buttons) || "nothing";
+  const rows: [string, string][] = d
+    ? [
+        ["Path in use", d.path === "p2p" ? "P2P (WebRTC data channel)" : d.path === "relay" ? "RELAY (Cloudflare WebSocket)" : "none"],
+        ["Game speaks P2P", d.hostP2P ? "yes" : "no (relay only)"],
+        ["Relay socket", d.wsState],
+        ["ICE", d.iceState],
+        ["Data channel", d.dcState],
+        ["Network path", d.candidate || "-"],
+        ["P2P round trip (last/avg/p90)", fmt(d.p2pRtt)],
+        ["Relay round trip (last/avg/p90)", fmt(d.relayRtt)],
+        ["Frames sent", `${d.framesSent} (${d.framesP2P} P2P, ${d.framesRelay} relay, ${d.repeats} repeats)`],
+        ["P2P attempts / reconnects", `${d.p2pAttempts} / ${d.reconnects}`],
+        ["Holding", held],
+        ["Room / seat", `${code} / ${padNumber + 1}`],
+        ["Layout", currentLayout()],
+        ["Game connected", hostOnline ? "yes" : "no"],
+        ["Device", deviceId().slice(0, 12)],
+      ]
+    : [["Status", "preview (no connection)"], ["Holding", held], ["Layout", currentLayout()]];
+  $("debug-rows").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("");
 }
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+}
+
+$("debug-btn").addEventListener("click", () => {
+  debugPanel.classList.toggle("hidden");
+  renderDebug();
+});
+$("debug-close").addEventListener("click", () => debugPanel.classList.add("hidden"));
+// Keep the live "Holding" line moving while the panel is open.
+setInterval(() => {
+  if (!debugPanel.classList.contains("hidden")) renderDebug();
+}, 200);
 
 // ---- Presentation ----
 
@@ -383,12 +410,14 @@ function start() {
   document.title = `Controller · ${code}`;
   void keepAwake();
   connect();
-  setInterval(ping, 2000);
-  ping();
 }
 
+// Exposed for scripts/e2e.ts and poking at from devtools.
+(window as unknown as { __pad: unknown }).__pad = {
+  debug: () => transport?.debug,
+  press: (b: "A" | "B", on: boolean) => input.set(b, on),
+};
 // Exposed for the homepage's layout gallery and debugging.
 (window as unknown as { __layouts: typeof LAYOUTS }).__layouts = LAYOUTS;
-void hostOnline;
 void wakeLock;
 start();

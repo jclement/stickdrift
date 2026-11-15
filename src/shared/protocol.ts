@@ -17,6 +17,29 @@ export const FRAME_SIZE = 16;
 
 /** Binary frame kinds (byte 0). */
 export const FRAME_INPUT = 1;
+/** A ping over the peer-to-peer data channel: the host echoes it back
+ *  unchanged (8 bytes: kind, 3 spare, u32 phone timestamp in ms). */
+export const FRAME_PING = 2;
+
+/** STUN servers for WebRTC. No TURN: if peers can't connect directly the
+ *  relay WebSocket is already the fallback. */
+export const ICE_SERVERS = [{ urls: "stun:stun.cloudflare.com:3478" }];
+
+/** seqNewer reports whether 16-bit sequence a is after b (wrap-aware). */
+export function seqNewer(a: number, b: number): boolean {
+  const d = (a - b) & 0xffff;
+  return d !== 0 && d < 0x8000;
+}
+
+/** A WebRTC signalling payload, relayed verbatim between pad and host. */
+export type Signal = { type: "offer" | "answer"; sdp: string } | { type: "candidate"; candidate: RTCIceCandidateInitLike | null };
+/** The subset of RTCIceCandidateInit we pass around (no DOM types here). */
+export interface RTCIceCandidateInitLike {
+  candidate?: string;
+  sdpMid?: string | null;
+  sdpMLineIndex?: number | null;
+  usernameFragment?: string | null;
+}
 
 /** Button bit positions inside the 32-bit button mask. */
 export const Button = {
@@ -259,7 +282,8 @@ export function cleanCustom(raw: unknown): CustomLayout | null {
 
 /** Host -> relay. */
 export type HostMessage =
-  | { t: "config"; title?: string; maxPads?: number; open?: boolean; look?: PadLook }
+  | { t: "config"; title?: string; maxPads?: number; open?: boolean; look?: PadLook; p2p?: boolean }
+  | { t: "signal"; pad: number; data: Signal }
   | ({ t: "pad"; pad: number } & PadLook)
   | { t: "haptic"; pad: number; ms: number | number[] }
   | { t: "kick"; pad: number };
@@ -269,7 +293,8 @@ export type ToHostMessage =
   | { t: "welcome"; code: string; joinUrl: string; version: number; pads: PadInfo[] }
   | ({ t: "join" } & PadInfo)
   | { t: "leave"; pad: number }
-  | { t: "rtt"; pad: number; ms: number }
+  | { t: "rtt"; pad: number; ms: number; via?: "p2p" | "relay" }
+  | { t: "signal"; pad: number; data: Signal }
   | { t: "error"; code: string; message: string };
 
 /** A connected pad as the host sees it. */
@@ -282,7 +307,8 @@ export interface PadInfo {
 
 /** Relay -> phone. */
 export type ToPadMessage =
-  | ({ t: "setup"; pad: number; title: string; version: number } & PadLook)
+  | ({ t: "setup"; pad: number; title: string; version: number; p2p: boolean } & PadLook)
+  | { t: "signal"; data: Signal }
   | { t: "haptic"; ms: number | number[] }
   | { t: "host"; online: boolean }
   | { t: "kicked" }
@@ -290,7 +316,7 @@ export type ToPadMessage =
   | { t: "pong" };
 
 /** Phone -> relay. */
-export type PadMessage = { t: "hello"; name?: string } | { t: "rtt"; ms: number };
+export type PadMessage = { t: "hello"; name?: string } | { t: "rtt"; ms: number; via?: "p2p" | "relay" } | { t: "signal"; data: Signal };
 
 /** The exact ping string both sides send; the relay answers it without waking. */
 export const PING = '{"t":"ping"}';

@@ -24,9 +24,16 @@
       <span class="chip rtt" id="hud-rtt">-- ms</span>
       <span class="spacer"></span>
       <button id="swap" class="hidden" aria-label="Switch between d-pad and stick">D-PAD / STICK</button>
+      <button id="debug-btn" aria-label="Connection details">i</button>
       <button id="fullscreen" aria-label="Full screen">⛶</button>
     </div>
     <div class="message" id="message"></div>
+
+    <aside class="debug hidden" id="debug" aria-label="Connection details">
+      <header><b>CONNECTION</b><button id="debug-close" aria-label="Close">✕</button></header>
+      <dl id="debug-rows"></dl>
+      <p>P2P is a direct WebRTC link to the game (fastest, works on the same network). The Cloudflare relay is the fallback and carries setup. Round trips are measured once a second.</p>
+    </aside>
 
     <div class="overlay hidden" id="join">
       <div>

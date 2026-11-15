@@ -124,4 +124,19 @@ describe("relay", () => {
     const health = await (await SELF.fetch("https://controller.test/api/v1/health")).json();
     expect(health).toMatchObject({ status: "ok", protocol: 1 });
   });
+
+  it("relays WebRTC signalling both ways and tells phones the host speaks P2P", async () => {
+    const code = randomCode();
+    const host = await open(`/ws/host/${code}?key=${KEY}`);
+    await host.next("welcome");
+    host.ws.send(JSON.stringify({ t: "config", p2p: true }));
+    const pad = await open(`/ws/pad/${code}?device=phone-eeeeeeee`);
+    const setup = await pad.next("setup");
+    expect(setup.p2p).toBe(true);
+    pad.ws.send(JSON.stringify({ t: "signal", data: { type: "offer", sdp: "v=0 offer" } }));
+    const offer = await host.next("signal");
+    expect(offer).toMatchObject({ pad: 0, data: { type: "offer", sdp: "v=0 offer" } });
+    host.ws.send(JSON.stringify({ t: "signal", pad: 0, data: { type: "answer", sdp: "v=0 answer" } }));
+    expect(await pad.next("signal")).toMatchObject({ data: { type: "answer", sdp: "v=0 answer" } });
+  });
 });

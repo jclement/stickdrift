@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Button, FRAME_SIZE, cleanCustom, cleanTheme, decodeFrame, encodeFrame, isCode, randomCode } from "../src/shared/protocol";
+import { Button, FRAME_SIZE, seqNewer, cleanCustom, cleanTheme, decodeFrame, encodeFrame, isCode, randomCode } from "../src/shared/protocol";
 
 describe("frames", () => {
   it("round-trips a full snapshot", () => {
@@ -55,5 +55,15 @@ describe("themes", () => {
   it("accepts presets and hex colours only", () => {
     expect(cleanTheme({ style: "retro", font: "pixel", background: "#112233", text: "url(evil)" })).toEqual({ style: "retro", font: "pixel", background: "#112233" });
     expect(cleanTheme({ style: "vaporwave" })).toBeNull();
+  });
+});
+
+describe("sequence numbers", () => {
+  it("compares across the 16-bit wrap", () => {
+    expect(seqNewer(2, 1)).toBe(true);
+    expect(seqNewer(1, 2)).toBe(false);
+    expect(seqNewer(1, 1)).toBe(false);
+    expect(seqNewer(3, 65530)).toBe(true);
+    expect(seqNewer(65530, 3)).toBe(false);
   });
 });

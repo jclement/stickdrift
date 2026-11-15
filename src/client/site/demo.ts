@@ -11,6 +11,8 @@ const $ = (id: string) => document.getElementById(id)!;
 
 let layout = "dpad-ab";
 const host = new ControllerHost({ origin: location.origin, title: "Demo", look: look() });
+// For automated end-to-end checks (scripts/e2e.ts).
+(window as unknown as { __host: ControllerHost }).__host = host;
 
 /** A sample custom layout, so the Custom chip shows something real. */
 const SAMPLE_CUSTOM = {
@@ -142,7 +144,8 @@ function draw(p: Pad) {
   const axes = p.state.lx || p.state.ly ? ` L(${p.state.lx.toFixed(2)},${p.state.ly.toFixed(2)})` : "";
   c.querySelector("[data-held]")!.textContent = p.connected ? held + axes || "idle" : "disconnected";
   c.querySelector("[data-rate]")!.textContent = `${p.frames} f`;
-  c.querySelector("[data-rtt]")!.textContent = p.rtt ? `${p.rtt} ms` : "-- ms";
+  const via = p.p2p ? "P2P" : "RELAY";
+  c.querySelector("[data-rtt]")!.textContent = p.rtt ? `${via} · ${p.rtt} ms` : via;
 }
 
 function blink(p: Pad) {

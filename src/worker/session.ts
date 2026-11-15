@@ -20,6 +20,7 @@ import {
   type HostMessage,
   type PadInfo,
   type PadLook,
+  type Signal,
   type ToHostMessage,
   type ToPadMessage,
 } from "../shared/protocol";
@@ -39,11 +40,13 @@ interface Room {
   look: PadLook; // defaults for new pads
   pads: Record<string, { pad: number; look: PadLook }>; // by device id
   lastHostSeen: number;
+  p2p?: boolean; // host can answer WebRTC offers
 }
 
 /** Hard limits that keep a room from being abused. */
 const MAX_PADS_LIMIT = 64;
-const MAX_TEXT_BYTES = 4096;
+/** Text limit: SDP offers with candidates run a few KB. */
+const MAX_TEXT_BYTES = 16384;
 /** A host that has been gone this long loses its claim on the code. */
 const HOST_CLAIM_TTL_MS = 30 * 60 * 1000;
 /** Rooms with no host are wiped after this long. */
@@ -156,7 +159,7 @@ export class Session extends DurableObject<Env> {
   private sendSetup(ws: WebSocket, room: Room, device: string) {
     const p = room.pads[device];
     const look = { ...room.look, ...p.look };
-    this.sendJSON(ws, { t: "setup", pad: p.pad, title: room.title, version: PROTOCOL_VERSION, ...look } satisfies ToPadMessage);
+    this.sendJSON(ws, { t: "setup", pad: p.pad, title: room.title, version: PROTOCOL_VERSION, p2p: !!room.p2p, ...look } satisfies ToPadMessage);
   }
 
   // ---- Messages ----
@@ -185,13 +188,16 @@ export class Session extends DurableObject<Env> {
 
   private padText(a: Extract<Attachment, { role: "pad" }>, msg: string) {
     if (msg.length > MAX_TEXT_BYTES) return;
-    let m: { t?: string; ms?: number };
+    let m: { t?: string; ms?: number; via?: string; data?: Signal };
     try {
       m = JSON.parse(msg);
     } catch {
       return;
     }
-    if (m.t === "rtt" && typeof m.ms === "number") this.toHost({ t: "rtt", pad: a.pad, ms: Math.round(m.ms) });
+    if (m.t === "rtt" && typeof m.ms === "number") {
+      this.toHost({ t: "rtt", pad: a.pad, ms: Math.round(m.ms), via: m.via === "p2p" ? "p2p" : "relay" });
+    }
+    if (m.t === "signal" && m.data && typeof m.data === "object") this.toHost({ t: "signal", pad: a.pad, data: m.data });
   }
 
   private async hostText(msg: string) {
@@ -208,6 +214,7 @@ export class Session extends DurableObject<Env> {
         if (typeof m.title === "string") room.title = m.title.slice(0, 40);
         if (typeof m.maxPads === "number") room.maxPads = Math.max(1, Math.min(MAX_PADS_LIMIT, Math.floor(m.maxPads)));
         if (typeof m.open === "boolean") room.open = m.open;
+        if (typeof m.p2p === "boolean") room.p2p = m.p2p;
         if (m.look) room.look = cleanLook(m.look);
         await this.save();
         for (const ws of this.padSockets()) this.sendSetup(ws, room, (ws.deserializeAttachment() as { device: string }).device);
@@ -220,6 +227,9 @@ export class Session extends DurableObject<Env> {
         for (const ws of this.padSocketsFor(m.pad)) this.sendSetup(ws, room, entry[0]);
         return;
       }
+      case "signal":
+        if (m.data && typeof m.data === "object") for (const ws of this.padSocketsFor(m.pad)) this.sendJSON(ws, { t: "signal", data: m.data });
+        return;
       case "haptic":
         for (const ws of this.padSocketsFor(m.pad)) this.sendJSON(ws, { t: "haptic", ms: m.ms });
         return;
