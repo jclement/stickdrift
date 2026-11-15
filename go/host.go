@@ -418,7 +418,7 @@ func (h *Host) session(ctx context.Context) (welcomed bool, err error) {
 	h.mu.Unlock()
 	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
-	c, res, err := websocket.Dial(dialCtx, u, &websocket.DialOptions{HTTPHeader: http.Header{"User-Agent": {h.userAgent}}})
+	c, res, err := websocket.Dial(dialCtx, u, dialOptions(h.userAgent))
 	if err != nil {
 		if res != nil && res.StatusCode == http.StatusConflict {
 			return false, errCodeTaken

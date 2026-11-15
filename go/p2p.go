@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -61,10 +60,8 @@ func (pr *peer) usable() bool {
 // ".local" names, so we must resolve those (QueryOnly: we don't advertise our
 // own) or LAN connections never form.
 func newPeers(urls []string) *peers {
-	var se webrtc.SettingEngine
-	se.SetICEMulticastDNSMode(ice.MulticastDNSModeQueryOnly)
 	return &peers{
-		api:   webrtc.NewAPI(webrtc.WithSettingEngine(se)),
+		api:   webrtc.NewAPI(webrtc.WithSettingEngine(settingEngine())),
 		ice:   []webrtc.ICEServer{{URLs: urls}},
 		byPad: map[int]*peer{},
 	}

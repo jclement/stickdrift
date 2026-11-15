@@ -96,3 +96,10 @@ WebRTC handshake, a re-offer after a dropped channel and a relay reconnect
 while P2P is up.
 
 The wire protocol is [PROTOCOL.md](../PROTOCOL.md).
+
+## Browsers (WebAssembly)
+
+The library also builds for `GOOS=js GOARCH=wasm`, so a Go game compiled to
+WebAssembly can host StickDrift from a web page (Kaboom does:
+https://boom.onewheelgeek.net). There, pion uses the browser's own
+RTCPeerConnection and the relay socket is the browser's WebSocket.
