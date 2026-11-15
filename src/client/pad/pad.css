@@ -625,3 +625,42 @@ body.style-candy .backdrop { background: radial-gradient(60% 60% at 20% 80%, rgb
 }
 .ios-hint .share::before { content: "⬆︎ "; }
 .ios-hint button { position: absolute; top: 6px; right: 8px; background: none; border: 0; color: var(--text); font-size: 16px; }
+
+/* ---- Identity: who you are, big and faded behind the controls ---- */
+.identity {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0.13;
+}
+.identity img {
+  width: min(70vh, 60vw);
+  height: min(70vh, 60vw);
+  image-rendering: pixelated;
+  object-fit: contain;
+  filter: drop-shadow(0 0 40px var(--accent));
+}
+.identity span {
+  position: absolute;
+  bottom: 8%;
+  font-size: min(22vh, 16vw);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.chip .avatar {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  margin-left: -4px;
+}
+.message {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  text-shadow: 0 2px 10px rgb(0 0 0 / 0.6);
+}

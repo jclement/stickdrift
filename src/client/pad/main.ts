@@ -169,6 +169,14 @@ function applyLook() {
   if (rgb) document.documentElement.style.setProperty("--accent-rgb", rgb.join(" "));
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", accent);
   applyTheme(look.theme ?? {});
+  const avatar = look.avatar ?? "";
+  for (const id of ["hud-avatar", "identity-avatar"]) {
+    const img = $(id) as HTMLImageElement;
+    if (avatar) img.src = avatar;
+    img.classList.toggle("hidden", !avatar);
+  }
+  $("hud-dot").classList.toggle("hidden", !!avatar);
+  $("identity-banner").textContent = look.banner ?? "";
   const who = look.label ?? `PLAYER ${padNumber + 1}`;
   hudLabel.textContent = `${who}`;
   message.textContent = look.message ?? "";

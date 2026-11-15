@@ -17,10 +17,14 @@
   </head>
   <body>
     <div class="backdrop"></div>
+    <div class="identity" id="identity" aria-hidden="true">
+      <img id="identity-avatar" alt="" class="hidden" />
+      <span id="identity-banner"></span>
+    </div>
     <div class="surface" id="surface"></div>
 
     <div class="hud">
-      <span class="chip"><span class="dot"></span><span id="hud-label">CONTROLLER</span></span>
+      <span class="chip"><img id="hud-avatar" class="avatar hidden" alt="" /><span class="dot" id="hud-dot"></span><span id="hud-label">CONTROLLER</span></span>
       <span class="chip rtt" id="hud-rtt">-- ms</span>
       <span class="spacer"></span>
       <button id="swap" class="hidden" aria-label="Switch between d-pad and stick">STICK</button>

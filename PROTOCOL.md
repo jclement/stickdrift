@@ -120,9 +120,20 @@ A look is any subset of:
   "swap": true,
   "diagonals": false,
   "theme": { "style": "retro", "font": "pixel", "shape": "square", "background": "#1a1423", "text": "#fdf6e3" },
-  "custom": { "orientation": "landscape", "controls": [ … ] }
+  "custom": { "orientation": "landscape", "controls": [ … ] },
+  "avatar": "data:image/png;base64,…",
+  "banner": "RED"
 }
 ```
+
+- `avatar`: a base64 PNG data URL of at most 24 KB, shown in the phone's HUD
+  chip and large, pixelated and faded behind the controls. Use it to show the
+  player who they are (Kaboom sends the player's own sprite). Anything that
+  is not a PNG data URL is dropped.
+- `banner`: up to 16 characters of big faded text behind the controls.
+- Looks can change at any time. A game typically sends a lobby look (READY,
+  colour picker), a gameplay look, a spectator look and a between-rounds
+  look; the phone rebuilds instantly and releases anything held.
 
 - `layout`: `dpad-ab`, `stick-ab`, `arcade`, `gamepad`, `twin-stick`,
   `buzzer`, `quiz`, `paddle`, `tilt`, `touchpad`, `custom`.

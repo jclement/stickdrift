@@ -67,3 +67,13 @@ describe("sequence numbers", () => {
     expect(seqNewer(65530, 3)).toBe(false);
   });
 });
+
+describe("avatars", () => {
+  it("accepts small PNG data URLs only", async () => {
+    const { cleanAvatar } = await import("../src/shared/protocol");
+    expect(cleanAvatar("data:image/png;base64,iVBORw0KGgo=")).toBe("data:image/png;base64,iVBORw0KGgo=");
+    expect(cleanAvatar("data:image/svg+xml;base64,PHN2Zz4=")).toBeNull();
+    expect(cleanAvatar("javascript:alert(1)")).toBeNull();
+    expect(cleanAvatar("data:image/png;base64," + "A".repeat(30000))).toBeNull();
+  });
+});

@@ -174,6 +174,18 @@ export interface PadLook {
   diagonals?: boolean; // false = 4-way d-pad (grid games); default 8-way
   custom?: CustomLayout; // the controls for layout "custom"
   theme?: Theme; // the controller's visual style
+  avatar?: string; // data:image/png;base64,... (≤ 24 KB): who you are, shown in the HUD and behind the controls
+  banner?: string; // big faded text behind the controls, e.g. "RED"
+}
+
+/** Largest avatar data URL accepted. A 64x64 PNG is a few KB. */
+export const MAX_AVATAR_BYTES = 24 * 1024;
+
+/** cleanAvatar accepts only a size-limited base64 PNG data URL. Rendered as
+ *  an <img>, a PNG can't run script, and nothing else gets through. */
+export function cleanAvatar(v: unknown): string | null {
+  if (typeof v !== "string" || v.length > MAX_AVATAR_BYTES) return null;
+  return /^data:image\/png;base64,[A-Za-z0-9+/]+=*$/.test(v) ? v : null;
 }
 
 // ---- Themes ----

@@ -14,6 +14,7 @@ import {
   PING,
   PONG,
   PROTOCOL_VERSION,
+  cleanAvatar,
   cleanCustom,
   cleanTheme,
   isLayout,
@@ -325,6 +326,11 @@ function cleanLook(l: PadLook): PadLook {
   if (typeof l.message === "string") out.message = l.message.slice(0, 80);
   if (typeof l.swap === "boolean") out.swap = l.swap;
   if (typeof l.diagonals === "boolean") out.diagonals = l.diagonals;
+  if (typeof l.banner === "string") out.banner = l.banner.slice(0, 16);
+  if (l.avatar !== undefined) {
+    const avatar = cleanAvatar(l.avatar);
+    if (avatar) out.avatar = avatar;
+  }
   if (l.theme) {
     const theme = cleanTheme(l.theme);
     if (theme) out.theme = theme;
