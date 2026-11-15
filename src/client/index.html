@@ -15,19 +15,19 @@
   <body class="grid-bg min-h-screen">
     <header class="h-12 flex items-center gap-4 px-4 md:px-8 border-b border-line bg-ink/70 backdrop-blur sticky top-0 z-20">
       <a href="/" class="font-display font-bold tracking-[0.3em] text-white">CONTROLLER</a>
-      <nav class="hidden md:flex gap-5 text-sm text-muted">
-        <a href="#how" class="hover:text-white">How it works</a>
-        <a href="#layouts" class="hover:text-white">Layouts</a>
-        <a href="#custom" class="hover:text-white">Custom</a>
-        <a href="#dev" class="hover:text-white">Developers</a>
+      <nav class="flex gap-4 md:gap-5 text-sm text-muted min-w-0 overflow-x-auto">
+        <a href="#layouts" class="hidden md:inline hover:text-white">Layouts</a>
+        <a href="/docs" class="hover:text-white">Docs</a>
+        <a href="/designer" class="hidden sm:inline hover:text-white">Designer</a>
+        <a href="/agents.md" class="hidden sm:inline text-zap hover:text-white">For agents</a>
       </nav>
       <span class="flex-1"></span>
-      <a href="/demo" class="text-sm font-display font-semibold text-hot">TRY THE DEMO →</a>
+      <a href="/demo" class="text-sm font-display font-semibold text-hot whitespace-nowrap">DEMO →</a>
     </header>
 
     <main>
       <!-- Hero -->
-      <section class="max-w-6xl mx-auto px-4 md:px-8 pt-14 pb-20 grid gap-12 lg:grid-cols-[1.1fr_1fr] items-center">
+      <section class="max-w-6xl mx-auto px-4 md:px-8 pt-14 pb-20 grid grid-cols-1 gap-12 lg:grid-cols-[1.1fr_1fr] items-center">
         <div>
           <p class="font-display text-sm tracking-[0.35em] text-muted mb-4">NO APP · NO ACCOUNTS · NO PAIRING</p>
           <h1 class="font-display font-bold text-5xl md:text-7xl leading-[0.95] text-white">
@@ -35,11 +35,12 @@
           </h1>
           <p class="mt-6 text-lg max-w-xl">
             The game shows a code. Everyone scans it. Their phone becomes a gamepad: a d-pad, a stick, a buzzer, a steering wheel,
-            whatever the game needs. Presses reach the game in tens of milliseconds over a direct WebSocket relay.
+            whatever the game needs. Presses reach the game peer-to-peer in about a millisecond on the same Wi-Fi, with Cloudflare's
+            edge as the fallback.
           </p>
           <div class="mt-8 flex flex-wrap gap-3">
             <a href="/demo" class="btn-hot">OPEN A DEMO ROOM</a>
-            <a href="#dev" class="btn-ghost">ADD IT TO YOUR GAME</a>
+            <a href="/docs#quickstart" class="btn-ghost">ADD IT TO YOUR GAME</a>
           </div>
           <form id="join" class="mt-10">
             <p class="font-display text-xs tracking-[0.3em] text-muted mb-2">GOT A CODE? JOIN A GAME</p>
@@ -89,7 +90,7 @@
       </section>
 
       <!-- Custom -->
-      <section id="custom" class="max-w-6xl mx-auto px-4 md:px-8 py-16 grid gap-8 lg:grid-cols-2 items-start">
+      <section id="custom" class="max-w-6xl mx-auto px-4 md:px-8 py-16 grid grid-cols-1 gap-8 lg:grid-cols-2 items-start">
         <div>
           <h2 class="font-display text-3xl md:text-4xl font-bold text-white">Or describe your own</h2>
           <p class="mt-3">
@@ -99,14 +100,24 @@
           </p>
           <pre id="custom-json"></pre>
           <p class="text-xs text-muted">Edit the JSON; the preview updates. Links work too: <code>/j?preview=custom#layout=…</code></p>
+          <a href="/designer" class="btn-ghost mt-4">OPEN THE LAYOUT DESIGNER →</a>
         </div>
         <div class="phone w-full aspect-[19.5/9]"><iframe id="custom-pad" title="Custom layout preview"></iframe></div>
       </section>
 
       <!-- Developers -->
       <section id="dev" class="max-w-6xl mx-auto px-4 md:px-8 py-16">
-        <h2 class="font-display text-3xl md:text-4xl font-bold text-white">For game developers</h2>
-        <div class="mt-8 grid gap-6 lg:grid-cols-2">
+        <div class="flex flex-wrap items-end gap-4">
+          <h2 class="font-display text-3xl md:text-4xl font-bold text-white flex-1">For game developers</h2>
+          <a href="/docs" class="btn-hot">READ THE DOCS</a>
+        </div>
+        <a href="/agents.md" class="agent-box mt-6 max-w-3xl">
+          <span class="agent-icon" aria-hidden="true">✦</span>
+          <span><strong>Using an AI agent?</strong> Tell it to read <code>controller.onewheelgeek.net/agents.md</code>: step-by-step
+            instructions to add phone controllers to your game end to end, with a check after every step. Everything else is indexed in
+            <code>/llms.txt</code>.</span>
+        </a>
+        <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <h3 class="font-display text-xl text-white mb-2">In the browser</h3>
             <pre>import { ControllerHost } from "https://controller.onewheelgeek.net/sdk.js";
@@ -137,7 +148,8 @@ receive  &lt;16 bytes&gt; kind u8 · pad u8 · seq u16 · buttons u32
 send     {"t":"haptic","pad":0,"ms":40}</pre>
             <p class="mt-3 text-sm">
               Buttons: Up 0, Down 1, Left 2, Right 3, A 4, B 5, X 6, Y 7, L 8, R 9, Start 10, Select 11.
-              Sticks also set the d-pad bits, so a d-pad game works with any layout. Full spec: <a class="text-hot" href="/protocol.md">protocol.md</a>.
+              Sticks also set the d-pad bits, so a d-pad game works with any layout. Full spec: <a class="text-hot" href="/docs#protocol">the protocol</a>. Go:
+              <a class="text-hot" href="/docs#sdks">github.com/jclement/controller/go</a>.
             </p>
           </div>
         </div>
@@ -149,7 +161,10 @@ send     {"t":"haptic","pad":0,"ms":40}</pre>
       </section>
     </main>
 
-    <footer class="border-t border-line py-6 text-center text-xs text-muted">(C) 2026 Jeff Clement · <span id="version">v…</span></footer>
+    <footer class="border-t border-line py-6 text-center text-xs text-muted">
+      (C) 2026 Jeff Clement · <span id="version">v…</span> · <a href="/docs" class="hover:text-white">Docs</a> ·
+      <a href="/designer" class="hover:text-white">Designer</a> · <a href="/llms.txt" class="hover:text-white">llms.txt</a>
+    </footer>
     <script type="module" src="./site/home.ts"></script>
   </body>
 </html>
