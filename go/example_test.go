@@ -1,22 +1,22 @@
 // A runnable sketch of a game loop, shown in the package documentation.
 
-package controller_test
+package stickdrift_test
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	controller "github.com/jclement/controller/go"
+	stickdrift "github.com/jclement/stickdrift/go"
 )
 
 // Example opens a room, greets every phone and reads input once per frame.
 func Example() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	host := controller.NewHost(controller.Options{
+	host := stickdrift.NewHost(stickdrift.Options{
 		Title: "My Game",
-		Look:  controller.Look{Layout: "dpad-ab", Theme: &controller.Theme{Style: "retro"}},
+		Look:  stickdrift.Look{Layout: "dpad-ab", Theme: &stickdrift.Theme{Style: "retro"}},
 	})
 	host.Start(ctx)
 	defer host.Close()
@@ -33,11 +33,11 @@ func Example() {
 		}
 		host.Tick()
 		for _, p := range host.Joined() {
-			host.SetPad(p.Number(), controller.Look{Label: fmt.Sprintf("PLAYER %d", p.Number()+1), Labels: map[controller.Button]string{controller.A: "JUMP"}})
+			host.SetPad(p.Number(), stickdrift.Look{Label: fmt.Sprintf("PLAYER %d", p.Number()+1), Labels: map[stickdrift.Button]string{stickdrift.A: "JUMP"}})
 			host.Haptic(p.Number(), 40)
 		}
 		for _, p := range host.Pads() {
-			if p.JustPressed(controller.A) {
+			if p.JustPressed(stickdrift.A) {
 				fmt.Printf("player %d jumps (p2p=%v)\n", p.Number()+1, p.P2P())
 			}
 			x, _ := p.Stick()

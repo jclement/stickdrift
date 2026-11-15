@@ -9,7 +9,7 @@ import (
 )
 
 func TestRenderQR(t *testing.T) {
-	out, err := renderQR("https://controller.onewheelgeek.net/j/ABCDE")
+	out, err := renderQR("https://stickdrift.net/j/ABCDE")
 	if err != nil {
 		t.Fatal(err)
 	}

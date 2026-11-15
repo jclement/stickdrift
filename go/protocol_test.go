@@ -1,6 +1,6 @@
 // Unit tests for the wire format and looks.
 
-package controller
+package stickdrift
 
 import (
 	"bytes"

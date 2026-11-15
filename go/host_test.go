@@ -1,7 +1,7 @@
 // Host behaviour against the fake relay: input, edges, events, commands,
 // reconnects and code conflicts.
 
-package controller
+package stickdrift
 
 import (
 	"context"
@@ -222,10 +222,10 @@ func TestHostRTT(t *testing.T) {
 }
 
 // TestLiveRelay opens a room on a real relay end to end. Opt-in:
-// CONTROLLER_LIVE=1 (uses $CONTROLLER_URL, default the public relay).
+// STICKDRIFT_LIVE=1 (uses $STICKDRIFT_URL, default the public relay).
 func TestLiveRelay(t *testing.T) {
-	if os.Getenv("CONTROLLER_LIVE") == "" {
-		t.Skip("set CONTROLLER_LIVE=1 to test against a real relay")
+	if os.Getenv("STICKDRIFT_LIVE") == "" {
+		t.Skip("set STICKDRIFT_LIVE=1 to test against a real relay")
 	}
 	h := NewHost(Options{Title: "go test"})
 	h.Start(context.Background())

@@ -2,7 +2,7 @@
 // p2p.go) a WebRTC peer connection per phone. The network runs on its own
 // goroutines; the game thread calls Tick once per frame and then reads pads.
 
-package controller
+package stickdrift
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 
 // Options configure a Host. Every field is optional.
 type Options struct {
-	// Origin is the relay's base URL. Default: $CONTROLLER_URL, else
+	// Origin is the relay's base URL. Default: $STICKDRIFT_URL, else
 	// DefaultOrigin. Use http://localhost:8787 for a local wrangler dev.
 	Origin string
 	// Code and Key reclaim a room (say, after the game restarts) with its
@@ -40,9 +40,9 @@ type Options struct {
 	// ICEServers overrides the STUN server for WebRTC.
 	ICEServers []string
 	// Logger receives connection events. Default: discarded, or stderr when
-	// CONTROLLER_DEBUG is set.
+	// STICKDRIFT_DEBUG is set.
 	Logger *slog.Logger
-	// UserAgent is sent when dialling the relay (default "controller-go").
+	// UserAgent is sent when dialling the relay (default "stickdrift-go").
 	UserAgent string
 }
 
@@ -133,7 +133,7 @@ type Host struct {
 func NewHost(opts Options) *Host {
 	origin := opts.Origin
 	if origin == "" {
-		origin = os.Getenv("CONTROLLER_URL")
+		origin = os.Getenv("STICKDRIFT_URL")
 	}
 	if origin == "" {
 		origin = DefaultOrigin
@@ -141,7 +141,7 @@ func NewHost(opts Options) *Host {
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
-		if os.Getenv("CONTROLLER_DEBUG") != "" {
+		if os.Getenv("STICKDRIFT_DEBUG") != "" {
 			logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		}
 	}
@@ -169,7 +169,7 @@ func NewHost(opts Options) *Host {
 		h.maxPads = 16
 	}
 	if h.userAgent == "" {
-		h.userAgent = "controller-go"
+		h.userAgent = "stickdrift-go"
 	}
 	ice := opts.ICEServers
 	if len(ice) == 0 {
@@ -303,7 +303,7 @@ func (h *Host) SetLook(look Look) {
 func (h *Host) SetPad(n int, look Look) {
 	b, err := json.Marshal(look)
 	if err != nil {
-		h.log.Warn("controller: bad look", "pad", n, "err", err)
+		h.log.Warn("stickdrift: bad look", "pad", n, "err", err)
 		return
 	}
 	var fields map[string]any
@@ -344,18 +344,18 @@ func (h *Host) send(v any) {
 	c := h.conn
 	h.mu.Unlock()
 	if c == nil {
-		h.log.Debug("controller: not connected, dropped message")
+		h.log.Debug("stickdrift: not connected, dropped message")
 		return
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
-		h.log.Warn("controller: encoding message", "err", err)
+		h.log.Warn("stickdrift: encoding message", "err", err)
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), writeTimeout)
 	defer cancel()
 	if err := c.Write(ctx, websocket.MessageText, b); err != nil {
-		h.log.Debug("controller: write failed", "err", err)
+		h.log.Debug("stickdrift: write failed", "err", err)
 	}
 }
 
@@ -395,10 +395,10 @@ func (h *Host) lostRelay(err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.conn, h.status, h.lastErr = nil, StatusError, err
-	h.log.Info("controller: relay connection ended", "err", err)
+	h.log.Info("stickdrift: relay connection ended", "err", err)
 	if errors.Is(err, errCodeTaken) {
 		h.code = RandomCode()
-		h.log.Info("controller: code taken, trying another", "code", h.code)
+		h.log.Info("stickdrift: code taken, trying another", "code", h.code)
 	}
 	for _, p := range h.pads {
 		if !p.P2P() {
@@ -515,10 +515,10 @@ func (h *Host) onMessage(data []byte) bool {
 	}
 	var m relayMessage
 	if err := json.Unmarshal(data, &m); err != nil {
-		h.log.Debug("controller: bad relay message", "err", err)
+		h.log.Debug("stickdrift: bad relay message", "err", err)
 		return false
 	}
-	h.log.Debug("controller: relay message", "t", m.T, "pad", m.Pad)
+	h.log.Debug("stickdrift: relay message", "t", m.T, "pad", m.Pad)
 	switch m.T {
 	case "welcome":
 		h.onWelcome(m)

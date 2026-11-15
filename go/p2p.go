@@ -15,7 +15,7 @@
 //   - Peer connections survive a relay reconnect: input keeps flowing P2P
 //     while the WebSocket comes back.
 
-package controller
+package stickdrift
 
 import (
 	"encoding/json"
@@ -131,7 +131,7 @@ func (h *Host) onSignal(n int, raw json.RawMessage) {
 	switch s.Type {
 	case "offer":
 		if err := h.answer(n, s.SDP); err != nil {
-			h.log.Info("controller: answering offer", "pad", n, "err", err)
+			h.log.Info("stickdrift: answering offer", "pad", n, "err", err)
 		}
 	case "candidate":
 		// nil is end-of-candidates, which pion doesn't need.
@@ -140,7 +140,7 @@ func (h *Host) onSignal(n int, raw json.RawMessage) {
 		}
 		if pr := h.peers.current(n); pr != nil {
 			if err := pr.pc.AddICECandidate(*s.Candidate); err != nil {
-				h.log.Debug("controller: candidate", "pad", n, "err", err)
+				h.log.Debug("stickdrift: candidate", "pad", n, "err", err)
 			}
 		}
 	}
@@ -165,7 +165,7 @@ func (h *Host) answer(n int, sdp string) error {
 	})
 	pc.OnDataChannel(func(dc *webrtc.DataChannel) { h.wireChannel(n, pr, dc) })
 	pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-		h.log.Debug("controller: p2p state", "pad", n, "state", s)
+		h.log.Debug("stickdrift: p2p state", "pad", n, "state", s)
 		pr.mu.Lock()
 		pr.connected = s == webrtc.PeerConnectionStateConnected
 		pr.mu.Unlock()

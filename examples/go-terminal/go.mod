@@ -1,8 +1,8 @@
-module github.com/jclement/controller/examples/go-terminal
+module github.com/jclement/stickdrift/examples/go-terminal
 
 go 1.25
 
-require github.com/jclement/controller/go v0.0.0
+require github.com/jclement/stickdrift/go v0.0.0
 
 require (
 	github.com/coder/websocket v1.8.15 // indirect
@@ -31,4 +31,4 @@ require (
 	rsc.io/qr v0.2.0
 )
 
-replace github.com/jclement/controller/go => ../../go
+replace github.com/jclement/stickdrift/go => ../../go

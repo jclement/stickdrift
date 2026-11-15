@@ -2,7 +2,7 @@
 // the poll helpers, per-pad P2P and RTT, relay reconnects, and WebRTC
 // re-offers.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Button, ControllerHost, encodeFrame, emptyState, held, pressed, released, type Pad } from "../../src/client/sdk/host";
+import { Button, ControllerHost, StickDriftHost, encodeFrame, emptyState, held, pressed, released, type Pad } from "../../src/client/sdk/host";
 import { FakePeer, FakeSocket, resetFakes, settle } from "./fakes";
 
 const frame = (seq: number, buttons: number, pad = 0) => encodeFrame({ ...emptyState(), seq, buttons }, pad);
@@ -11,7 +11,7 @@ const B = 1 << Button.B;
 
 /** start makes a host on a fake relay and welcomes it with some pads. */
 function start(pads: number[] = [], opts: { p2p?: boolean } = {}) {
-  const host = new ControllerHost({ origin: "https://relay.test", code: "ABCDE", key: "0123456789abcdef0123", ...opts });
+  const host = new StickDriftHost({ origin: "https://relay.test", code: "ABCDE", key: "0123456789abcdef0123", ...opts });
   const ws = FakeSocket.latest();
   ws.open();
   ws.json({ t: "welcome", code: "ABCDE", joinUrl: "https://relay.test/j/ABCDE", version: 1, pads: pads.map((pad) => ({ pad, device: `dev-${pad}` })) });
@@ -24,18 +24,18 @@ beforeEach(() => {
   vi.stubGlobal("RTCPeerConnection", FakePeer);
 });
 
-let hosts: ControllerHost[] = [];
+let hosts: StickDriftHost[] = [];
 afterEach(() => {
   for (const h of hosts) h.close();
   hosts = [];
   vi.unstubAllGlobals();
 });
-const track = <T extends { host: ControllerHost }>(x: T) => (hosts.push(x.host), x);
+const track = <T extends { host: StickDriftHost }>(x: T) => (hosts.push(x.host), x);
 
-describe("ControllerHost", () => {
+describe("StickDriftHost", () => {
   it("opens with a config that offers P2P and reports the join URL", () => {
     const opened: string[] = [];
-    const host = new ControllerHost({ origin: "https://relay.test", title: "T", look: { layout: "paddle" } });
+    const host = new StickDriftHost({ origin: "https://relay.test", title: "T", look: { layout: "paddle" } });
     hosts.push(host);
     host.on("open", (_code, url) => opened.push(url));
     const ws = FakeSocket.latest();
@@ -159,7 +159,7 @@ describe("ControllerHost", () => {
   });
 });
 
-describe("ControllerHost WebRTC", () => {
+describe("StickDriftHost WebRTC", () => {
   const offer = (ws: FakeSocket, pad = 0) => ws.json({ t: "signal", pad, data: { type: "offer", sdp: "v=0" } });
   const candidate = (ws: FakeSocket, pad = 0) => ws.json({ t: "signal", pad, data: { type: "candidate", candidate: { candidate: "c", sdpMid: "0" } } });
 
@@ -240,5 +240,11 @@ describe("ControllerHost WebRTC", () => {
     offer(ws);
     await settle();
     expect(FakePeer.instances).toHaveLength(0);
+  });
+});
+
+describe("renamed class", () => {
+  it("keeps ControllerHost as an alias of StickDriftHost", () => {
+    expect(ControllerHost).toBe(StickDriftHost);
   });
 });

@@ -4,7 +4,7 @@
 // consistent, and edges (JustPressed) line up with game ticks the way
 // Ebitengine's inpututil does.
 
-package controller
+package stickdrift
 
 import "sync"
 

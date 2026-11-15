@@ -1,4 +1,4 @@
-// go-terminal opens a Controller room from a terminal, prints its QR code,
+// go-terminal opens a StickDrift room from a terminal, prints its QR code,
 // and logs every phone's input as it happens. It is the smallest complete
 // host: copy it as the starting point for a Go game.
 //
@@ -14,24 +14,24 @@ import (
 	"strings"
 	"time"
 
-	controller "github.com/jclement/controller/go"
+	stickdrift "github.com/jclement/stickdrift/go"
 )
 
 // colours tint each player's phone so people can tell who is who.
 var colours = []string{"#ff4d6d", "#3a86ff", "#38d996", "#ffbe0b", "#b388ff", "#ff8c1a"}
 
 func main() {
-	origin := flag.String("origin", "", "relay URL (default $CONTROLLER_URL or "+controller.DefaultOrigin+")")
-	layout := flag.String("layout", "gamepad", "phone layout: "+strings.Join(controller.Layouts, ", "))
+	origin := flag.String("origin", "", "relay URL (default $STICKDRIFT_URL or "+stickdrift.DefaultOrigin+")")
+	layout := flag.String("layout", "gamepad", "phone layout: "+strings.Join(stickdrift.Layouts, ", "))
 	relayOnly := flag.Bool("relay-only", false, "no WebRTC: all input through the relay")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	host := controller.NewHost(controller.Options{
+	host := stickdrift.NewHost(stickdrift.Options{
 		Origin:     *origin,
 		Title:      "Terminal",
-		Look:       controller.Look{Layout: *layout, Swap: controller.Bool(true)},
+		Look:       stickdrift.Look{Layout: *layout, Swap: stickdrift.Bool(true)},
 		DisableP2P: *relayOnly,
 	})
 	host.Start(ctx)
@@ -55,7 +55,7 @@ func main() {
 }
 
 // loop is the "game": 60 ticks a second, log joins, leaves and changes.
-func loop(ctx context.Context, host *controller.Host) {
+func loop(ctx context.Context, host *stickdrift.Host) {
 	frame := time.NewTicker(time.Second / 60)
 	defer frame.Stop()
 	last := map[int]string{}
@@ -69,7 +69,7 @@ func loop(ctx context.Context, host *controller.Host) {
 		host.Tick()
 		for _, p := range host.Joined() {
 			n := p.Number()
-			host.SetPad(n, controller.Look{Label: fmt.Sprintf("PLAYER %d", n+1), Color: colours[n%len(colours)]})
+			host.SetPad(n, stickdrift.Look{Label: fmt.Sprintf("PLAYER %d", n+1), Color: colours[n%len(colours)]})
 			host.Haptic(n, 40)
 			logf(p, "joined")
 		}
@@ -87,7 +87,7 @@ func loop(ctx context.Context, host *controller.Host) {
 }
 
 // logf prints one line about a pad, with the path its input takes.
-func logf(p *controller.Pad, format string, args ...any) {
+func logf(p *stickdrift.Pad, format string, args ...any) {
 	path := "relay"
 	if p.P2P() {
 		path = "P2P"
@@ -99,9 +99,9 @@ func logf(p *controller.Pad, format string, args ...any) {
 }
 
 // describe summarises what a pad is doing: presses this tick, holds, sticks.
-func describe(p *controller.Pad) string {
+func describe(p *stickdrift.Pad) string {
 	var parts []string
-	for _, b := range controller.Buttons {
+	for _, b := range stickdrift.Buttons {
 		switch {
 		case p.JustPressed(b):
 			parts = append(parts, b.String()+"↓")

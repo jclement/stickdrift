@@ -1,8 +1,8 @@
-// Test helpers: a fake relay standing in for the Controller Durable Object,
+// Test helpers: a fake relay standing in for the StickDrift relay Durable Object,
 // and a pion "phone" that negotiates a data channel through it the way the
 // browser controller does.
 
-package controller
+package stickdrift
 
 import (
 	"context"

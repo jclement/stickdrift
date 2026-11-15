@@ -1,19 +1,19 @@
-# controller (Go)
+# stickdrift (Go)
 
 Turn phones into game controllers from a Go program. Your game is the
-**host**: it opens a room on the Controller relay, shows the join URL as a QR
-code, and every phone that opens it becomes a `*controller.Pad`.
+**host**: it opens a room on the StickDrift relay, shows the join URL as a QR
+code, and every phone that opens it becomes a `*stickdrift.Pad`.
 
 ```sh
-go get github.com/jclement/controller/go
+go get github.com/jclement/stickdrift/go
 ```
 
 ```go
-import controller "github.com/jclement/controller/go"
+import stickdrift "github.com/jclement/stickdrift/go"
 
-host := controller.NewHost(controller.Options{
+host := stickdrift.NewHost(stickdrift.Options{
 	Title: "My Game",
-	Look:  controller.Look{Layout: "dpad-ab"},
+	Look:  stickdrift.Look{Layout: "dpad-ab"},
 })
 host.Start(ctx)
 defer host.Close()
@@ -23,14 +23,14 @@ showQR(host.Info().JoinURL)
 // once per game frame:
 host.Tick()
 for _, p := range host.Joined() {
-	host.SetPad(p.Number(), controller.Look{Label: fmt.Sprintf("PLAYER %d", p.Number()+1), Color: "#e63946"})
+	host.SetPad(p.Number(), stickdrift.Look{Label: fmt.Sprintf("PLAYER %d", p.Number()+1), Color: "#e63946"})
 }
 for _, p := range host.Left() {
 	removePlayer(p.Number())
 }
 for _, p := range host.Pads() {
-	if p.JustPressed(controller.A) { jump(p.Number()) }
-	if p.Held(controller.Left) { walkLeft(p.Number()) }
+	if p.JustPressed(stickdrift.A) { jump(p.Number()) }
+	if p.Held(stickdrift.Left) { walkLeft(p.Number()) }
 	x, y := p.Stick()
 	_ = p.P2P() // true when input arrives directly over WebRTC
 }
@@ -56,7 +56,7 @@ A complete program is in [`examples/go-terminal`](../examples/go-terminal).
   reconciled: anyone who left meanwhile appears in `Left()`. A phone whose
   data channel dies offers a new one, which replaces the old.
 - **Another host with the same key** takes the room over; this one stops with
-  `Info().Err == controller.ErrReplaced` rather than fight for it. A code held
+  `Info().Err == stickdrift.ErrReplaced` rather than fight for it. A code held
   by a different key gets a fresh random code.
 - **Commands are best effort.** `SetPad`, `SetLook`, `SetOpen`, `Haptic` and
   `Kick` are dropped while disconnected. `SetLook` and `SetOpen` are re-sent
@@ -84,9 +84,9 @@ merges a pad's look, so to blank a text field name it in `Look.Clear`.
 
 | Variable | Effect |
 |---|---|
-| `CONTROLLER_URL` | relay origin when `Options.Origin` is empty (e.g. `http://localhost:8787`) |
-| `CONTROLLER_DEBUG` | log connection events to stderr when `Options.Logger` is nil |
-| `CONTROLLER_LIVE=1` | `go test` also opens a room on a real relay |
+| `STICKDRIFT_URL` | relay origin when `Options.Origin` is empty (e.g. `http://localhost:8787`) |
+| `STICKDRIFT_DEBUG` | log connection events to stderr when `Options.Logger` is nil |
+| `STICKDRIFT_LIVE=1` | `go test` also opens a room on a real relay |
 
 ## Tests
 

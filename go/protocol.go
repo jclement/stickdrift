@@ -2,7 +2,7 @@
 // comparison and room codes. This mirrors src/shared/protocol.ts; PROTOCOL.md
 // in the repository root is the language-neutral spec both follow.
 
-package controller
+package stickdrift
 
 import (
 	"crypto/rand"
@@ -16,7 +16,7 @@ import (
 const ProtocolVersion = 1
 
 // DefaultOrigin is the public relay.
-const DefaultOrigin = "https://controller.onewheelgeek.net"
+const DefaultOrigin = "https://stickdrift.net"
 
 // stunServer is the only ICE server: there is no TURN because the relay
 // WebSocket already is the fallback when phones can't reach us directly.

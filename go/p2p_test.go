@@ -1,6 +1,6 @@
 // Peer-to-peer tests with a real pion handshake through the fake relay.
 
-package controller
+package stickdrift
 
 import (
 	"sync"

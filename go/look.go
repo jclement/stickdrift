@@ -2,7 +2,7 @@
 // custom controls, avatar, banner). The relay validates everything again, so
 // these types are for convenience and documentation, not security.
 
-package controller
+package stickdrift
 
 import (
 	"bytes"

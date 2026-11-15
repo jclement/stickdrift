@@ -1,9 +1,9 @@
-// Package controller turns phones into game controllers through the
-// Controller relay (https://controller.onewheelgeek.net). Your program is the
+// Package stickdrift turns phones into game controllers through the
+// StickDrift relay (https://stickdrift.net). Your program is the
 // host: it opens a room, shows the join URL as a QR code, and every phone
 // that opens it becomes a Pad.
 //
-//	host := controller.NewHost(controller.Options{Title: "My Game", Look: controller.Look{Layout: "dpad-ab"}})
+//	host := stickdrift.NewHost(stickdrift.Options{Title: "My Game", Look: stickdrift.Look{Layout: "dpad-ab"}})
 //	host.Start(ctx)
 //	defer host.Close()
 //	<-host.Ready()
@@ -12,10 +12,10 @@
 //	for range time.Tick(time.Second / 60) { // your game loop
 //		host.Tick()
 //		for _, p := range host.Joined() {
-//			host.SetPad(p.Number(), controller.Look{Label: fmt.Sprintf("PLAYER %d", p.Number()+1)})
+//			host.SetPad(p.Number(), stickdrift.Look{Label: fmt.Sprintf("PLAYER %d", p.Number()+1)})
 //		}
 //		for _, p := range host.Pads() {
-//			if p.JustPressed(controller.A) {
+//			if p.JustPressed(stickdrift.A) {
 //				jump(p.Number())
 //			}
 //		}
@@ -28,4 +28,4 @@
 // only at Tick, so reads within one frame agree with each other.
 //
 // The wire protocol is PROTOCOL.md in the repository.
-package controller
+package stickdrift

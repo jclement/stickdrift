@@ -1,9 +1,9 @@
-// ControllerHost: the browser-side host SDK. A game (or the demo page) opens
+// StickDriftHost: the StickDrift browser-side host SDK. A game (or the demo page) opens
 // a room, shows the join URL/QR, and reads pads. Published as /sdk.js with
 // type declarations at /sdk.d.ts (built by scripts/sdk-dts.ts).
 //
-//   import { ControllerHost, pressed } from "https://controller.onewheelgeek.net/sdk.js";
-//   const host = new ControllerHost({ title: "My Game", look: { layout: "dpad-ab" } });
+//   import { StickDriftHost, pressed } from "https://stickdrift.net/sdk.js";
+//   const host = new StickDriftHost({ title: "My Game", look: { layout: "dpad-ab" } });
 //   host.on("open", (code, joinUrl) => showQr(joinUrl));
 //   function frame() { for (const [n, p] of host.poll()) if (pressed(p, "A")) jump(n); }
 //
@@ -136,7 +136,7 @@ const BACKOFF_MAX_MS = 5000;
 const PING_EVERY_MS = 2000;
 
 /** A room: opens it on the relay, tracks phones, and talks back to them. */
-export class ControllerHost {
+export class StickDriftHost {
   /** The room code (may change once if the first choice was taken). */
   code: string;
   /** The host secret. Save it with the code to reclaim the room after a reload. */
@@ -493,3 +493,8 @@ export function pressed(p: PadPoll | undefined, b: ButtonName): boolean {
 export function released(p: PadPoll | undefined, b: ButtonName): boolean {
   return !!p && down(p.released, b);
 }
+
+/** @deprecated Renamed to StickDriftHost; this alias will be removed. */
+export const ControllerHost = StickDriftHost;
+/** @deprecated Renamed to StickDriftHost; this alias will be removed. */
+export type ControllerHost = StickDriftHost;

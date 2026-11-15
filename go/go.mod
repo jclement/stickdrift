@@ -1,4 +1,4 @@
-module github.com/jclement/controller/go
+module github.com/jclement/stickdrift/go
 
 go 1.25
 
