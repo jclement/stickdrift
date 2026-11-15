@@ -4,5 +4,7 @@
     "lib": ["ES2022"],
     "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-plugin/types"]
   },
-  "include": ["src/worker", "src/shared", "test"]
+  "include": ["src/worker", "src/shared", "test"],
+  // Browser-side tests (the SDK) need DOM types; tsconfig.client.json checks them.
+  "exclude": ["test/client"]
 }

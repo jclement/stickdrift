@@ -12,8 +12,8 @@ description = "Install dependencies (idempotent)"
 run = ["bun install --frozen-lockfile", "cd go && go mod download", "cd examples/go-terminal && go mod download"]
 
 [tasks.build]
-description = "Build the pages and the host SDK into dist/client"
-run = ["bunx vite build", "bunx vite build -c vite.sdk.config.ts", "cp PROTOCOL.md dist/client/protocol.md"]
+description = "Build the pages, the host SDK and its type declarations into dist/client"
+run = ["bunx vite build", "bunx vite build -c vite.sdk.config.ts", "bun scripts/sdk-dts.ts", "cp PROTOCOL.md dist/client/protocol.md"]
 
 [tasks.dev]
 description = "Local Worker + Durable Objects at http://localhost:8787 (rebuild pages with mise run build)"
