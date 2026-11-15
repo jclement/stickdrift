@@ -17,7 +17,7 @@ button you press shows up on the page.
 <p id="code"></p>
 <pre id="log"></pre>
 <script type="module">
-  import { ControllerHost, Button } from "https://controller.onewheelgeek.net/sdk.js";
+  import { ControllerHost, Button } from "https://stickdrift.net/sdk.js";
   import qrcode from "https://esm.sh/qrcode-generator@2.0.4";
 
   const host = new ControllerHost({
@@ -67,13 +67,13 @@ That is the whole integration. From here:
 
 ## In Go
 
-The Go module `github.com/jclement/controller/go` wraps the same protocol,
+The Go module `github.com/jclement/stickdrift/go` wraps the same protocol,
 including peer-to-peer WebRTC. It is **being built right now**; the shape
 below is the agreed API, and names may still shift. Check
-`go doc github.com/jclement/controller/go` for what shipped.
+`go doc github.com/jclement/stickdrift/go` for what shipped.
 
 ```sh
-go get github.com/jclement/controller/go
+go get github.com/jclement/stickdrift/go
 ```
 
 ```go
@@ -85,14 +85,14 @@ import (
 	"log"
 	"time"
 
-	controller "github.com/jclement/controller/go"
+	stickdrift "github.com/jclement/stickdrift/go"
 )
 
 func main() {
 	ctx := context.Background()
-	host := controller.NewHost(controller.Options{
+	host := stickdrift.NewHost(stickdrift.Options{
 		Title: "My Game",
-		Look:  controller.Look{Layout: "dpad-ab", Labels: map[string]string{"A": "JUMP"}},
+		Look:  stickdrift.Look{Layout: "dpad-ab", Labels: map[string]string{"A": "JUMP"}},
 	})
 	if err := host.Start(ctx); err != nil {
 		log.Fatal(err)
@@ -103,7 +103,7 @@ func main() {
 	for range tick.C {
 		host.Tick() // once per game frame: publishes this frame's presses
 		for _, pad := range host.Pads() {
-			if pad.JustPressed(controller.A) {
+			if pad.JustPressed(stickdrift.A) {
 				fmt.Println("player", pad.Number, "jumped")
 			}
 			x, y := pad.Stick()
@@ -116,14 +116,14 @@ func main() {
 ## Any other language
 
 Anything that speaks WebSockets can be a host: connect to
-`wss://controller.onewheelgeek.net/ws/host/CODE?key=SECRET`, send one JSON
+`wss://stickdrift.net/ws/host/CODE?key=SECRET`, send one JSON
 `config` message, and read 16-byte binary frames. The [protocol](/docs#protocol)
 page has every byte.
 
 ```text
-connect  wss://controller.onewheelgeek.net/ws/host/ABCDE?key=<16+ random chars>
+connect  wss://stickdrift.net/ws/host/ABCDE?key=<16+ random chars>
 send     {"t":"config","title":"My Game","look":{"layout":"stick-ab"}}
-receive  {"t":"welcome","code":"ABCDE","joinUrl":"https://controller.onewheelgeek.net/j/ABCDE",…}
+receive  {"t":"welcome","code":"ABCDE","joinUrl":"https://stickdrift.net/j/ABCDE",…}
 receive  {"t":"join","pad":0,"device":"…"}
 receive  <16 bytes>  kind u8 · pad u8 · seq u16 · buttons u32 · lx ly rx ry i8 · px py i16
 send     {"t":"haptic","pad":0,"ms":40}

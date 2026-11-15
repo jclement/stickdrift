@@ -10,11 +10,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
-    <title>Controller · every phone is a gamepad</title>
+    <title>StickDrift · every phone is a gamepad</title>
   </head>
   <body class="grid-bg min-h-screen">
     <header class="h-12 flex items-center gap-4 px-4 md:px-8 border-b border-line bg-ink/70 backdrop-blur sticky top-0 z-20">
-      <a href="/" class="font-display font-bold tracking-[0.3em] text-white">CONTROLLER</a>
+      <a href="/" class="font-display font-bold tracking-[0.3em] text-white">STICKDRIFT</a>
       <nav class="flex gap-4 md:gap-5 text-sm text-muted min-w-0 overflow-x-auto">
         <a href="#layouts" class="hidden md:inline hover:text-white">Layouts</a>
         <a href="/docs" class="hover:text-white">Docs</a>
@@ -113,14 +113,14 @@
         </div>
         <a href="/agents.md" class="agent-box mt-6 max-w-3xl">
           <span class="agent-icon" aria-hidden="true">✦</span>
-          <span><strong>Using an AI agent?</strong> Tell it to read <code>controller.onewheelgeek.net/agents.md</code>: step-by-step
+          <span><strong>Using an AI agent?</strong> Tell it to read <code>stickdrift.net/agents.md</code>: step-by-step
             instructions to add phone controllers to your game end to end, with a check after every step. Everything else is indexed in
             <code>/llms.txt</code>.</span>
         </a>
         <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <h3 class="font-display text-xl text-white mb-2">In the browser</h3>
-            <pre>import { ControllerHost } from "https://controller.onewheelgeek.net/sdk.js";
+            <pre>import { ControllerHost } from "https://stickdrift.net/sdk.js";
 
 const host = new ControllerHost({
   title: "My Game",
@@ -139,7 +139,7 @@ function frame() {
           </div>
           <div>
             <h3 class="font-display text-xl text-white mb-2">Anything with a WebSocket</h3>
-            <pre>connect  wss://controller.onewheelgeek.net/ws/host/ABCDE?key=&lt;your secret&gt;
+            <pre>connect  wss://stickdrift.net/ws/host/ABCDE?key=&lt;your secret&gt;
 send     {"t":"config","title":"My Game","look":{"layout":"stick-ab"}}
 receive  {"t":"welcome","code":"ABCDE","joinUrl":"https://…/j/ABCDE"}
 receive  {"t":"join","pad":0,"device":"…"}
@@ -149,7 +149,7 @@ send     {"t":"haptic","pad":0,"ms":40}</pre>
             <p class="mt-3 text-sm">
               Buttons: Up 0, Down 1, Left 2, Right 3, A 4, B 5, X 6, Y 7, L 8, R 9, Start 10, Select 11.
               Sticks also set the d-pad bits, so a d-pad game works with any layout. Full spec: <a class="text-hot" href="/docs#protocol">the protocol</a>. Go:
-              <a class="text-hot" href="/docs#sdks">github.com/jclement/controller/go</a>.
+              <a class="text-hot" href="/docs#sdks">github.com/jclement/stickdrift/go</a>.
             </p>
           </div>
         </div>
@@ -162,7 +162,7 @@ send     {"t":"haptic","pad":0,"ms":40}</pre>
     </main>
 
     <footer class="border-t border-line py-6 text-center text-xs text-muted">
-      (C) 2026 Jeff Clement · <span id="version">v…</span> · <a href="/docs" class="hover:text-white">Docs</a> ·
+      (C) 2026 Straybits Corp · <span id="version">v…</span> · <a href="/docs" class="hover:text-white">Docs</a> ·
       <a href="/designer" class="hover:text-white">Designer</a> · <a href="/llms.txt" class="hover:text-white">llms.txt</a>
     </footer>
     <script type="module" src="./site/home.ts"></script>

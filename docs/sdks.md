@@ -9,7 +9,7 @@ game frame with latched presses.
 An ES module served by the relay itself, so there is nothing to install:
 
 ```js
-import { ControllerHost, Button, down } from "https://controller.onewheelgeek.net/sdk.js";
+import { ControllerHost, Button, down } from "https://stickdrift.net/sdk.js";
 ```
 
 The module connects back to the origin it was loaded from. To use a local
@@ -88,17 +88,17 @@ channel is open) and `frames`.
 
 ## Go
 
-Module `github.com/jclement/controller/go`, package `controller`. A
+Module `github.com/jclement/stickdrift/go`, package `stickdrift`. A
 generalisation of the client Kaboom uses (WebSocket via
 `github.com/coder/websocket`, WebRTC via `github.com/pion/webrtc/v4`).
 
 > **Being built.** The API below is the agreed design; names may shift
-> before it lands. `go doc github.com/jclement/controller/go` is the truth.
+> before it lands. `go doc github.com/jclement/stickdrift/go` is the truth.
 
 ```go
-host := controller.NewHost(controller.Options{
+host := stickdrift.NewHost(stickdrift.Options{
 	Title: "My Game",
-	Look:  controller.Look{Layout: "stick-ab", Color: "#ff4d6d"},
+	Look:  stickdrift.Look{Layout: "stick-ab", Color: "#ff4d6d"},
 })
 if err := host.Start(ctx); err != nil { // connects; reconnects by itself
 	return err
@@ -107,8 +107,8 @@ if err := host.Start(ctx); err != nil { // connects; reconnects by itself
 for !quit { // your game loop
 	host.Tick() // once per frame: this frame's presses become visible
 	for _, pad := range host.Pads() {
-		if pad.JustPressed(controller.A) { jump(pad) }
-		if pad.Held(controller.Left)     { walkLeft(pad) }
+		if pad.JustPressed(stickdrift.A) { jump(pad) }
+		if pad.Held(stickdrift.Left)     { walkLeft(pad) }
 		x, y := pad.Stick()             // left stick, -1..1
 		_ = pad.P2P()                   // true when input arrives peer-to-peer
 	}

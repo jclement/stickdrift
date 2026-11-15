@@ -1,14 +1,14 @@
-# Controller: integration guide for AI coding agents
+# StickDrift: integration guide for AI coding agents
 
 You are adding phone controllers to a game. Players scan a QR code and
 their phone becomes a gamepad; your game reads their input every frame.
 Follow these steps in order. Each has a check, so you know it worked before
-moving on. Full docs: https://controller.onewheelgeek.net/docs (raw
+moving on. Full docs: https://stickdrift.net/docs (raw
 Markdown under `/docs/*.md`, index at `/llms.txt`).
 
 ## Facts to rely on
 
-- Relay: `https://controller.onewheelgeek.net`. No signup, no API key, no
+- Relay: `https://stickdrift.net`. No signup, no API key, no
   server to run.
 - The game is the **host**; each phone is a **pad** with a stable seat
   number from 0. Rooms are five letters (`ABCDEFGHJKLMNPQRSTUVWXYZ`).
@@ -38,11 +38,11 @@ Map the game's controls to one of these `layout` ids:
 | One axis + fire | `paddle` |
 | Steering | `tilt` |
 | Pointer | `touchpad` |
-| Anything else | `custom` (see https://controller.onewheelgeek.net/docs/custom-layouts.md) |
+| Anything else | `custom` (see https://stickdrift.net/docs/custom-layouts.md) |
 
 Relabel buttons to the game's verbs: `labels: { "A": "JUMP", "B": "FIRE" }`.
 
-**Check:** open `https://controller.onewheelgeek.net/j?preview=<layout>` and
+**Check:** open `https://stickdrift.net/j?preview=<layout>` and
 confirm the controls match what the game needs. For a custom layout, use
 `/j?preview=custom#layout=<base64url of the JSON>` or build it at `/designer`.
 
@@ -51,22 +51,22 @@ confirm the controls match what the game needs. For a custom layout, use
 **Browser game:**
 
 ```js
-import { ControllerHost, Button, down } from "https://controller.onewheelgeek.net/sdk.js";
+import { ControllerHost, Button, down } from "https://stickdrift.net/sdk.js";
 const host = new ControllerHost({ title: "<Game name>", look: { layout: "dpad-ab", labels: { A: "JUMP" } } });
 ```
 
-**Go game:** `go get github.com/jclement/controller/go` (package
-`controller`; still being built, confirm names with `go doc`):
+**Go game:** `go get github.com/jclement/stickdrift/go` (package
+`stickdrift`; still being built, confirm names with `go doc`):
 
 ```go
-host := controller.NewHost(controller.Options{Title: "<Game name>", Look: controller.Look{Layout: "dpad-ab"}})
+host := stickdrift.NewHost(stickdrift.Options{Title: "<Game name>", Look: stickdrift.Look{Layout: "dpad-ab"}})
 if err := host.Start(ctx); err != nil { return err }
 ```
 
 **Anything else:** WebSocket to
-`wss://controller.onewheelgeek.net/ws/host/<CODE>?key=<16-128 random chars>`,
+`wss://stickdrift.net/ws/host/<CODE>?key=<16-128 random chars>`,
 send `{"t":"config","title":"…","look":{"layout":"dpad-ab"}}`, receive
-`{"t":"welcome","joinUrl":…}`. Spec: https://controller.onewheelgeek.net/protocol.md
+`{"t":"welcome","joinUrl":…}`. Spec: https://stickdrift.net/protocol.md
 
 To keep players seated across a reload, persist `code` and `key` and pass
 them back to the constructor.
@@ -76,7 +76,7 @@ them back to the constructor.
 When the room opens (`host.on("open", (code, joinUrl) => …)` in JS), draw
 `joinUrl` as a QR code on the game's screen, large, with the five-letter
 code underneath in big type for people who'd rather type it at
-`controller.onewheelgeek.net`. Use any QR library already in the project;
+`stickdrift.net`. Use any QR library already in the project;
 otherwise `qrcode-generator` (JS) or `github.com/skip2/go-qrcode` (Go).
 
 **Check:** scan it (or open `joinUrl` in another browser tab): the phone
@@ -97,8 +97,8 @@ for (const [n, p] of host.poll()) {
 ```go
 host.Tick()
 for _, pad := range host.Pads() {
-	if pad.JustPressed(controller.A) { jump(pad.Number) }
-	if pad.Held(controller.Left) { moveLeft(pad.Number) }
+	if pad.JustPressed(stickdrift.A) { jump(pad.Number) }
+	if pad.Held(stickdrift.Left) { moveLeft(pad.Number) }
 }
 ```
 
@@ -119,7 +119,7 @@ host.setPad(n, { color: player.color, label: player.name, banner: player.team })
 ```
 
 Optionally send `avatar`: a PNG data URL of the player's sprite, under
-12 KB. See https://controller.onewheelgeek.net/docs/avatars.md
+12 KB. See https://stickdrift.net/docs/avatars.md
 
 ## Step 6: a look per phase
 
@@ -133,7 +133,7 @@ Send a different look when the game changes phase, for example:
 `host.setLook(look)` changes everyone; `host.setPad(n, look)` one phone.
 After a phase change, call `host.poll()` once and discard the result so
 presses from the old phase don't carry over. Recipes:
-https://controller.onewheelgeek.net/docs/recipes.md
+https://stickdrift.net/docs/recipes.md
 
 Optional: `host.haptic(n, 40)` on hits (Android only; never the only
 signal). `host.setOpen(false)` when a round starts to stop new joiners.
@@ -142,7 +142,7 @@ signal). `host.setOpen(false)` when a round starts to stop new joiners.
 
 1. **Without a phone:** open the join URL in a second browser tab and click
    the buttons.
-2. **The reference host:** https://controller.onewheelgeek.net/demo shows
+2. **The reference host:** https://stickdrift.net/demo shows
    every pad's live state; compare your game's behaviour with it.
 3. **Every look you send:** preview it at
    `/j?preview=<layout>&color=%23hex&style=…` without a room.

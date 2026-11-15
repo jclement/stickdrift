@@ -1,36 +1,36 @@
-# Controller
+# StickDrift
 
 > Turn every phone in the room into a game controller. A game (the host) opens a room on a Cloudflare relay and shows a QR code; each phone that scans it becomes a gamepad (d-pad, stick, buzzer, quiz buttons, tilt wheel, touchpad, or a custom layout) whose input reaches the game as 16-byte snapshots over WebRTC peer-to-peer (~1 ms on a LAN) or the relay (~55-65 ms). No app, no accounts, no API key.
 
-Relay: https://controller.onewheelgeek.net. Browser SDK: `import { ControllerHost } from "https://controller.onewheelgeek.net/sdk.js"`. Go: `github.com/jclement/controller/go` (in progress). Read presses as latched edges (`poll().pressed`), not only held state.
+Relay: https://stickdrift.net. Browser SDK: `import { ControllerHost } from "https://stickdrift.net/sdk.js"`. Go: `github.com/jclement/stickdrift/go` (in progress). Read presses as latched edges (`poll().pressed`), not only held state.
 
 ## Start here
 
-- [Agent integration guide](https://controller.onewheelgeek.net/agents.md): step-by-step instructions to add phone controllers to a game, with checks at each step
-- [Quickstart](https://controller.onewheelgeek.net/docs/quickstart.md): a complete browser host in one HTML file, plus Go
-- [Concepts](https://controller.onewheelgeek.net/docs/concepts.md): rooms, hosts, pads, looks, phases, P2P vs relay
+- [Agent integration guide](https://stickdrift.net/agents.md): step-by-step instructions to add phone controllers to a game, with checks at each step
+- [Quickstart](https://stickdrift.net/docs/quickstart.md): a complete browser host in one HTML file, plus Go
+- [Concepts](https://stickdrift.net/docs/concepts.md): rooms, hosts, pads, looks, phases, P2P vs relay
 
-## Controllers
+## StickDrifts
 
-- [Layouts](https://controller.onewheelgeek.net/docs/layouts.md): the ten built-in layouts, what each produces, preview URLs
-- [Custom layouts](https://controller.onewheelgeek.net/docs/custom-layouts.md): every control type and field for `layout: "custom"`
-- [Themes](https://controller.onewheelgeek.net/docs/themes.md): styles, fonts, shapes, colours
-- [Avatars and banners](https://controller.onewheelgeek.net/docs/avatars.md): show each player who they are
-- [Haptics](https://controller.onewheelgeek.net/docs/haptics.md): vibration patterns (Android only)
+- [Layouts](https://stickdrift.net/docs/layouts.md): the ten built-in layouts, what each produces, preview URLs
+- [Custom layouts](https://stickdrift.net/docs/custom-layouts.md): every control type and field for `layout: "custom"`
+- [Themes](https://stickdrift.net/docs/themes.md): styles, fonts, shapes, colours
+- [Avatars and banners](https://stickdrift.net/docs/avatars.md): show each player who they are
+- [Haptics](https://stickdrift.net/docs/haptics.md): vibration patterns (Android only)
 
 ## Reference
 
-- [SDKs](https://controller.onewheelgeek.net/docs/sdks.md): JavaScript `ControllerHost` and the Go package
-- [Protocol](https://controller.onewheelgeek.net/protocol.md): WebSocket endpoints, JSON messages, the 16-byte input frame, WebRTC signalling
-- [Layouts as JSON](https://controller.onewheelgeek.net/api/v1/layouts)
+- [SDKs](https://stickdrift.net/docs/sdks.md): JavaScript `ControllerHost` and the Go package
+- [Protocol](https://stickdrift.net/protocol.md): WebSocket endpoints, JSON messages, the 16-byte input frame, WebRTC signalling
+- [Layouts as JSON](https://stickdrift.net/api/v1/layouts)
 
 ## Guides
 
-- [Recipes](https://controller.onewheelgeek.net/docs/recipes.md): lobby/gameplay/spectator/results looks, player identity, 4-way grid games
-- [FAQ](https://controller.onewheelgeek.net/docs/faq.md): iPhone full screen, latency numbers, guest Wi-Fi
+- [Recipes](https://stickdrift.net/docs/recipes.md): lobby/gameplay/spectator/results looks, player identity, 4-way grid games
+- [FAQ](https://stickdrift.net/docs/faq.md): iPhone full screen, latency numbers, guest Wi-Fi
 
 ## Tools
 
-- [Demo host](https://controller.onewheelgeek.net/demo): a working host showing every pad's live state, for testing
-- [Layout designer](https://controller.onewheelgeek.net/designer): build a custom layout visually and copy its JSON
-- Preview any look without a room: `https://controller.onewheelgeek.net/j?preview=<layout>&color=%23hex&style=<glass|neon|flat|retro|candy>&font=<display|sans|mono|pixel>&shape=<round|rounded|square>&bg=%23hex&text=%23hex`, and for custom layouts `/j?preview=custom#layout=<base64url JSON>`
+- [Demo host](https://stickdrift.net/demo): a working host showing every pad's live state, for testing
+- [Layout designer](https://stickdrift.net/designer): build a custom layout visually and copy its JSON
+- Preview any look without a room: `https://stickdrift.net/j?preview=<layout>&color=%23hex&style=<glass|neon|flat|retro|candy>&font=<display|sans|mono|pixel>&shape=<round|rounded|square>&bg=%23hex&text=%23hex`, and for custom layouts `/j?preview=custom#layout=<base64url JSON>`

@@ -1,6 +1,6 @@
 {
-  "name": "Controller",
-  "short_name": "Controller",
+  "name": "StickDrift",
+  "short_name": "StickDrift",
   "description": "Every phone is a game controller.",
   "start_url": "/j",
   "display": "fullscreen",

@@ -150,6 +150,16 @@ function duplicateSelected() {
 
 // ---- Dragging and resizing on the canvas ----
 
+/** capture keeps pointer events coming to el while dragging. It throws for
+ *  pointers that are no longer active; dragging still works without it. */
+function capture(el: HTMLElement, pointerId: number) {
+  try {
+    el.setPointerCapture(pointerId);
+  } catch {
+    // Not capturable (already released, or synthetic): carry on uncaptured.
+  }
+}
+
 type Drag = { kind: "move"; i: number; dx: number; dy: number } | { kind: "resize"; i: number };
 let drag: Drag | null = null;
 
@@ -175,7 +185,7 @@ canvas.addEventListener("pointerdown", (e) => {
   const p = pointFrac(e);
   const c = design.controls[i];
   drag = target.dataset.handle ? { kind: "resize", i } : { kind: "move", i, dx: p.x - c.x, dy: p.y - c.y };
-  canvas.setPointerCapture(e.pointerId);
+  capture(canvas, e.pointerId);
 });
 
 canvas.addEventListener("pointermove", (e) => {
@@ -265,7 +275,7 @@ function buildPalette() {
  *  where it is released over the phone; a plain tap adds it in the middle. */
 function paletteDrag(e: PointerEvent, type: ControlType, from: HTMLElement) {
   e.preventDefault();
-  from.setPointerCapture(e.pointerId);
+  capture(from, e.pointerId);
   const start = { x: e.clientX, y: e.clientY };
   let ghost: HTMLElement | null = null;
   const move = (m: PointerEvent) => {

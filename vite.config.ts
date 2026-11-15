@@ -19,7 +19,7 @@ const read = (file: string) => readFileSync(resolve(repo, file), "utf8");
 /** docsPlugin fills docs.html and emits the raw Markdown files. */
 function docsPlugin(): Plugin {
   return {
-    name: "controller-docs",
+    name: "stickdrift-docs",
     transformIndexHtml: {
       order: "pre",
       handler(html, ctx) {

@@ -33,7 +33,7 @@ function show() {
     a.classList.toggle("active", active);
     if (a.classList.contains("doc-link")) a.parentElement!.classList.toggle("open", id === section.id);
   }
-  document.title = `${section.dataset.title} · Controller docs`;
+  document.title = `${section.dataset.title} · StickDrift docs`;
   nav.classList.remove("open");
   menu.setAttribute("aria-expanded", "false");
   if (target) target.scrollIntoView({ block: "start" });
