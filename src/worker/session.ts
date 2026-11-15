@@ -1,0 +1,331 @@
+// Session is the Durable Object that relays one room: one host (the game)
+// and any number of pads (phones). It uses the WebSocket Hibernation API, so
+// an idle room costs nothing; per-socket facts live in socket attachments
+// and the room's settings in Durable Object storage, both of which survive
+// hibernation.
+//
+// The hot path is webSocketMessage for a pad's binary frame: stamp the pad
+// number into byte 1 and send it to the host. No parsing, no allocation
+// beyond one copy, no awaits.
+import { DurableObject } from "cloudflare:workers";
+import {
+  FRAME_INPUT,
+  FRAME_SIZE,
+  PING,
+  PONG,
+  PROTOCOL_VERSION,
+  cleanCustom,
+  cleanTheme,
+  isLayout,
+  type HostMessage,
+  type PadInfo,
+  type PadLook,
+  type ToHostMessage,
+  type ToPadMessage,
+} from "../shared/protocol";
+
+/** What we remember about each socket (kept across hibernation). */
+type Attachment =
+  | { role: "host" }
+  | { role: "pad"; pad: number; device: string; name?: string };
+
+/** Room settings persisted in storage. */
+interface Room {
+  code: string;
+  hostKey: string;
+  title: string;
+  maxPads: number;
+  open: boolean;
+  look: PadLook; // defaults for new pads
+  pads: Record<string, { pad: number; look: PadLook }>; // by device id
+  lastHostSeen: number;
+}
+
+/** Hard limits that keep a room from being abused. */
+const MAX_PADS_LIMIT = 64;
+const MAX_TEXT_BYTES = 4096;
+/** A host that has been gone this long loses its claim on the code. */
+const HOST_CLAIM_TTL_MS = 30 * 60 * 1000;
+/** Rooms with no host are wiped after this long. */
+const ROOM_TTL_MS = 6 * 60 * 60 * 1000;
+
+export class Session extends DurableObject<Env> {
+  private room: Room | null = null;
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    // Pings are answered by the runtime without waking the object, so
+    // latency measurement is cheap and never contends with input.
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(PING, PONG));
+    ctx.blockConcurrencyWhile(async () => {
+      this.room = (await ctx.storage.get<Room>("room")) ?? null;
+    });
+  }
+
+  /** fetch handles the WebSocket upgrade for hosts and pads. */
+  async fetch(req: Request): Promise<Response> {
+    if (req.headers.get("Upgrade") !== "websocket") {
+      return new Response("expected a WebSocket upgrade", { status: 426 });
+    }
+    const url = new URL(req.url);
+    const code = url.searchParams.get("code") ?? "";
+    if (url.searchParams.get("role") === "host") {
+      return this.acceptHost(code, url.searchParams.get("key") ?? "", url.origin);
+    }
+    return this.acceptPad(url.searchParams.get("device") ?? "", url.searchParams.get("name") ?? undefined);
+  }
+
+  // ---- Hosts ----
+
+  private async acceptHost(code: string, key: string, origin: string): Promise<Response> {
+    if (key.length < 16 || key.length > 128) return new Response("host key must be 16-128 characters", { status: 400 });
+    const room = this.room;
+    const claimed = room && room.hostKey !== key;
+    const stale = room && Date.now() - room.lastHostSeen > HOST_CLAIM_TTL_MS && this.hosts().length === 0;
+    if (claimed && !stale) {
+      // Someone else owns this code. The host should pick another.
+      return new Response("room code in use", { status: 409 });
+    }
+    if (!room || claimed) {
+      this.room = { code, hostKey: key, title: "", maxPads: 16, open: true, look: {}, pads: {}, lastHostSeen: Date.now() };
+    }
+    for (const old of this.hosts()) old.close(4000, "replaced by a new host connection");
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server, ["host"]);
+    server.serializeAttachment({ role: "host" } satisfies Attachment);
+    this.room!.lastHostSeen = Date.now();
+    await this.save();
+    const pads: PadInfo[] = this.padSockets().map((ws) => this.padInfo(ws));
+    this.sendJSON(server, { t: "welcome", code, joinUrl: `${origin}/j/${code}`, version: PROTOCOL_VERSION, pads } satisfies ToHostMessage);
+    this.broadcastPads({ t: "host", online: true });
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  // ---- Pads ----
+
+  private async acceptPad(device: string, name?: string): Promise<Response> {
+    if (!/^[A-Za-z0-9_-]{8,64}$/.test(device)) return new Response("bad device id", { status: 400 });
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server, ["pad"]);
+    const room = this.room;
+    if (!room) {
+      // No game has ever claimed this code: tell the phone and hang up.
+      this.sendJSON(server, { t: "host", online: false });
+      server.close(4004, "no such room");
+      return new Response(null, { status: 101, webSocket: client });
+    }
+    const pad = this.assignPad(room, device);
+    if (pad < 0) {
+      this.sendJSON(server, { t: "full" });
+      server.close(4003, "room full");
+      return new Response(null, { status: 101, webSocket: client });
+    }
+    // One phone, one socket: a reconnect replaces the previous connection.
+    for (const ws of this.padSockets()) {
+      const a = ws.deserializeAttachment() as Attachment;
+      if (a.role === "pad" && a.device === device && ws !== server) ws.close(4001, "replaced by a new connection");
+    }
+    const rejoin = device in room.pads;
+    room.pads[device] ??= { pad, look: {} };
+    await this.save();
+    server.serializeAttachment({ role: "pad", pad, device, name: name?.slice(0, 24) } satisfies Attachment);
+    this.sendSetup(server, room, device);
+    this.sendJSON(server, { t: "host", online: this.hosts().length > 0 });
+    this.toHost({ t: "join", pad, device, name: name?.slice(0, 24), rejoin });
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /** assignPad returns the device's previous pad number or the lowest free one. */
+  private assignPad(room: Room, device: string): number {
+    const known = room.pads[device];
+    if (known) return known.pad;
+    if (!room.open) return -1;
+    const used = new Set(Object.values(room.pads).map((p) => p.pad));
+    for (let i = 0; i < room.maxPads; i++) if (!used.has(i)) return i;
+    // Full of remembered devices: recycle a slot whose phone is gone.
+    const live = new Set(this.padSockets().map((ws) => (ws.deserializeAttachment() as { pad: number }).pad));
+    for (const [dev, p] of Object.entries(room.pads)) {
+      if (!live.has(p.pad)) {
+        delete room.pads[dev];
+        return p.pad;
+      }
+    }
+    return -1;
+  }
+
+  private sendSetup(ws: WebSocket, room: Room, device: string) {
+    const p = room.pads[device];
+    const look = { ...room.look, ...p.look };
+    this.sendJSON(ws, { t: "setup", pad: p.pad, title: room.title, version: PROTOCOL_VERSION, ...look } satisfies ToPadMessage);
+  }
+
+  // ---- Messages ----
+
+  async webSocketMessage(ws: WebSocket, msg: ArrayBuffer | string): Promise<void> {
+    const a = ws.deserializeAttachment() as Attachment;
+    if (a.role === "pad") {
+      if (typeof msg !== "string") {
+        this.relayInput(a.pad, msg);
+        return;
+      }
+      this.padText(a, msg);
+      return;
+    }
+    if (typeof msg === "string" && msg.length <= MAX_TEXT_BYTES) await this.hostText(msg);
+  }
+
+  /** relayInput is the hot path: stamp the pad number and forward. */
+  private relayInput(pad: number, frame: ArrayBuffer) {
+    if (frame.byteLength !== FRAME_SIZE) return;
+    const out = new Uint8Array(frame.slice(0));
+    if (out[0] !== FRAME_INPUT) return;
+    out[1] = pad;
+    for (const host of this.hosts()) host.send(out);
+  }
+
+  private padText(a: Extract<Attachment, { role: "pad" }>, msg: string) {
+    if (msg.length > MAX_TEXT_BYTES) return;
+    let m: { t?: string; ms?: number };
+    try {
+      m = JSON.parse(msg);
+    } catch {
+      return;
+    }
+    if (m.t === "rtt" && typeof m.ms === "number") this.toHost({ t: "rtt", pad: a.pad, ms: Math.round(m.ms) });
+  }
+
+  private async hostText(msg: string) {
+    const room = this.room;
+    if (!room) return;
+    let m: HostMessage;
+    try {
+      m = JSON.parse(msg);
+    } catch {
+      return;
+    }
+    switch (m.t) {
+      case "config":
+        if (typeof m.title === "string") room.title = m.title.slice(0, 40);
+        if (typeof m.maxPads === "number") room.maxPads = Math.max(1, Math.min(MAX_PADS_LIMIT, Math.floor(m.maxPads)));
+        if (typeof m.open === "boolean") room.open = m.open;
+        if (m.look) room.look = cleanLook(m.look);
+        await this.save();
+        for (const ws of this.padSockets()) this.sendSetup(ws, room, (ws.deserializeAttachment() as { device: string }).device);
+        return;
+      case "pad": {
+        const entry = Object.entries(room.pads).find(([, p]) => p.pad === m.pad);
+        if (!entry) return;
+        entry[1].look = { ...entry[1].look, ...cleanLook(m) };
+        await this.save();
+        for (const ws of this.padSocketsFor(m.pad)) this.sendSetup(ws, room, entry[0]);
+        return;
+      }
+      case "haptic":
+        for (const ws of this.padSocketsFor(m.pad)) this.sendJSON(ws, { t: "haptic", ms: m.ms });
+        return;
+      case "kick": {
+        for (const ws of this.padSocketsFor(m.pad)) {
+          this.sendJSON(ws, { t: "kicked" });
+          ws.close(4002, "kicked by host");
+        }
+        for (const [dev, p] of Object.entries(room.pads)) if (p.pad === m.pad) delete room.pads[dev];
+        await this.save();
+        return;
+      }
+    }
+  }
+
+  async webSocketClose(ws: WebSocket, code: number): Promise<void> {
+    const a = ws.deserializeAttachment() as Attachment | null;
+    if (!a) return;
+    if (a.role === "pad") {
+      // Only report a leave if this device has no newer socket.
+      const stillHere = this.padSockets().some((o) => o !== ws && (o.deserializeAttachment() as Attachment).role === "pad" && (o.deserializeAttachment() as { device: string }).device === a.device);
+      if (!stillHere && code !== 4001) this.toHost({ t: "leave", pad: a.pad });
+      return;
+    }
+    if (this.hosts().filter((h) => h !== ws).length === 0) {
+      this.broadcastPads({ t: "host", online: false });
+      if (this.room) {
+        this.room.lastHostSeen = Date.now();
+        await this.save();
+      }
+      await this.ctx.storage.setAlarm(Date.now() + ROOM_TTL_MS);
+    }
+  }
+
+  async webSocketError(ws: WebSocket): Promise<void> {
+    await this.webSocketClose(ws, 1006);
+  }
+
+  /** alarm wipes a room nobody has hosted for ROOM_TTL_MS. */
+  async alarm(): Promise<void> {
+    if (this.hosts().length > 0) return;
+    for (const ws of this.ctx.getWebSockets()) ws.close(4004, "room expired");
+    this.room = null;
+    await this.ctx.storage.deleteAll();
+  }
+
+  // ---- Helpers ----
+
+  private hosts(): WebSocket[] {
+    return this.ctx.getWebSockets("host");
+  }
+
+  private padSockets(): WebSocket[] {
+    return this.ctx.getWebSockets("pad").filter((ws) => (ws.deserializeAttachment() as Attachment | null)?.role === "pad");
+  }
+
+  private padSocketsFor(pad: number): WebSocket[] {
+    return this.padSockets().filter((ws) => (ws.deserializeAttachment() as { pad: number }).pad === pad);
+  }
+
+  private padInfo(ws: WebSocket): PadInfo {
+    const a = ws.deserializeAttachment() as Extract<Attachment, { role: "pad" }>;
+    return { pad: a.pad, device: a.device, name: a.name, rejoin: true };
+  }
+
+  private toHost(m: ToHostMessage) {
+    for (const h of this.hosts()) this.sendJSON(h, m);
+  }
+
+  private broadcastPads(m: ToPadMessage) {
+    for (const ws of this.padSockets()) this.sendJSON(ws, m);
+  }
+
+  private sendJSON(ws: WebSocket, m: unknown) {
+    try {
+      ws.send(JSON.stringify(m));
+    } catch {
+      // Socket already closing; the close handler tidies up.
+    }
+  }
+
+  private async save() {
+    if (this.room) await this.ctx.storage.put("room", this.room);
+  }
+}
+
+/** cleanLook keeps only known, size-limited presentation fields. */
+function cleanLook(l: PadLook): PadLook {
+  const out: PadLook = {};
+  if (typeof l.layout === "string" && isLayout(l.layout)) out.layout = l.layout;
+  if (typeof l.label === "string") out.label = l.label.slice(0, 24);
+  if (typeof l.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(l.color)) out.color = l.color;
+  if (typeof l.message === "string") out.message = l.message.slice(0, 80);
+  if (typeof l.swap === "boolean") out.swap = l.swap;
+  if (typeof l.diagonals === "boolean") out.diagonals = l.diagonals;
+  if (l.theme) {
+    const theme = cleanTheme(l.theme);
+    if (theme) out.theme = theme;
+  }
+  if (l.custom) {
+    const custom = cleanCustom(l.custom);
+    if (custom) out.custom = custom;
+  }
+  if (l.labels && typeof l.labels === "object") {
+    out.labels = {};
+    for (const [k, v] of Object.entries(l.labels)) if (typeof v === "string") (out.labels as Record<string, string>)[k] = v.slice(0, 10);
+  }
+  return out;
+}

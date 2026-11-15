@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#ff4d6d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@500;700&family=JetBrains+Mono:wght@600&family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <title>Controller</title>
+  </head>
+  <body>
+    <div class="backdrop"></div>
+    <div class="surface" id="surface"></div>
+
+    <div class="hud">
+      <span class="chip"><span class="dot"></span><span id="hud-label">CONTROLLER</span></span>
+      <span class="chip rtt" id="hud-rtt">-- ms</span>
+      <span class="spacer"></span>
+      <button id="swap" class="hidden" aria-label="Switch between d-pad and stick">D-PAD / STICK</button>
+      <button id="fullscreen" aria-label="Full screen">⛶</button>
+    </div>
+    <div class="message" id="message"></div>
+
+    <div class="overlay hidden" id="join">
+      <div>
+        <h1>ENTER CODE</h1>
+        <p>The five letters on the big screen.</p>
+        <div class="codebox">
+          <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 1" />
+          <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 2" />
+          <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 3" />
+          <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 4" />
+          <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 5" />
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="status">
+      <div>
+        <div class="pulse-dot" id="status-dot"></div>
+        <h1 id="status-title">CONNECTING</h1>
+        <p id="status-text"></p>
+        <button class="big-btn hidden" id="status-retry">ENTER ANOTHER CODE</button>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="rotate">
+      <div>
+        <div class="phone-rotate"></div>
+        <h1>TURN SIDEWAYS</h1>
+        <p>This controller wants landscape.</p>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="tilt-permission">
+      <div>
+        <h1>TILT TO STEER</h1>
+        <p>Your phone needs permission to read its motion sensors.</p>
+        <button class="big-btn" id="tilt-allow">ALLOW MOTION</button>
+      </div>
+    </div>
+
+    <script type="module" src="./pad/main.ts"></script>
+  </body>
+</html>

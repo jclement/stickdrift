@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.wrangler/
+*.tsbuildinfo
+.dev.vars
+.env*
+mise.local.toml
+.DS_Store
