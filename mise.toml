@@ -1,17 +1,19 @@
 [tools]
 node = "24.16.0"
 bun = "1.3.14"
+go = "1.27.3"
 
 # StickDrift runs on Cloudflare Workers: one Durable Object per room relays
 # phones (pads) to a game (host). Vite builds the pages into dist/client.
+# go/ is the Go host library (its own module); examples/go-terminal uses it.
 
 [tasks.setup]
 description = "Install dependencies (idempotent)"
-run = "bun install --frozen-lockfile"
+run = ["bun install --frozen-lockfile", "cd go && go mod download", "cd examples/go-terminal && go mod download"]
 
 [tasks.build]
-description = "Build the pages and the host SDK into dist/client"
-run = ["bunx vite build", "bunx vite build -c vite.sdk.config.ts", "cp PROTOCOL.md dist/client/protocol.md"]
+description = "Build the pages, the host SDK and its type declarations into dist/client"
+run = ["bunx vite build", "bunx vite build -c vite.sdk.config.ts", "bun scripts/sdk-dts.ts", "cp PROTOCOL.md dist/client/protocol.md"]
 
 [tasks.dev]
 description = "Local Worker + Durable Objects at http://localhost:8787 (rebuild pages with mise run build)"
@@ -19,16 +21,36 @@ depends = ["build"]
 run = "bunx wrangler dev --ip 0.0.0.0"
 
 [tasks.test]
-description = "Unit and relay integration tests (Workers runtime)"
+description = "Every test suite: TypeScript (Workers runtime) and Go"
+depends = ["test:js", "test:go"]
+
+[tasks."test:js"]
+description = "Unit, SDK and relay integration tests (vitest in workerd)"
 run = "bunx vitest run"
 
+[tasks."test:go"]
+description = "Go host library and example tests (race detector on)"
+run = ["cd go && go test -race ./...", "cd examples/go-terminal && go test -race ./..."]
+
 [tasks.lint]
-description = "Typecheck worker and client (read-only)"
+description = "Typecheck TypeScript, vet and format-check Go (read-only)"
+depends = ["lint:ts", "lint:go"]
+
+[tasks."lint:ts"]
+description = "Typecheck worker, client and SDK tests"
 run = "bunx tsc -b --noEmit"
 
+[tasks."lint:go"]
+description = "go vet plus a gofmt check (never rewrites)"
+run = [
+  "cd go && go vet ./...",
+  "cd examples/go-terminal && go vet ./...",
+  "f=$(gofmt -l go examples/go-terminal); if [ -n \"$f\" ]; then echo \"gofmt needed: $f\"; exit 1; fi",
+]
+
 [tasks.fmt]
-description = "No formatter configured; tsc is the gate"
-run = "echo 'nothing to format'"
+description = "gofmt the Go code (TypeScript has no formatter; tsc is the gate)"
+run = "gofmt -w go examples/go-terminal"
 
 [tasks.check]
 description = "Everything that must pass before calling work done"

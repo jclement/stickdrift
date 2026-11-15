@@ -3,7 +3,7 @@
 // takes to come out the other side. Both ends are this machine, so the
 // number is the full phone -> edge -> Durable Object -> host path.
 //
-//   bun scripts/smoke.ts https://controller.onewheelgeek.net
+//   bun scripts/smoke.ts https://stickdrift.net
 import { Button, decodeFrame, emptyState, encodeFrame, randomCode } from "../src/shared/protocol";
 
 const origin = process.argv[2] ?? "http://127.0.0.1:8787";

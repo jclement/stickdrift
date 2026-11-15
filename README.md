@@ -73,11 +73,14 @@ custom domain are in `wrangler.jsonc`.
 
 | Task | What it does |
 |---|---|
-| `setup` | install dependencies |
+| `setup` | install dependencies (bun and Go modules) |
 | `build` | Vite pages (docs rendered from Markdown) + SDK + protocol.md into `dist/client` |
 | `dev` | build, then `wrangler dev` |
-| `test` | vitest in workerd: protocol units and host/pad relay integration |
-| `lint` | `tsc -b` over worker and client |
+| `test` | `test:js` + `test:go` |
+| `test:js` | vitest in workerd: protocol units, SDK, host/pad relay integration |
+| `test:go` | the Go host library (`go/`) and `examples/go-terminal`, with `-race` |
+| `lint` | `lint:ts` (`tsc -b`) + `lint:go` (`go vet`, gofmt check) |
+| `fmt` | gofmt the Go code |
 | `check` | lint + test |
 | `deploy` | build and `wrangler deploy` |
 | `dev:reset` | delete `dist` and local DO state |
