@@ -102,9 +102,9 @@ too). When two directions are held, prefer the most recently pressed one:
 ```js
 const DIRS = ["Up", "Down", "Left", "Right"];
 for (const [n, p] of host.poll()) {
-  const fresh = DIRS.find((d) => down(p.pressed, d));          // newest press wins
+  const fresh = DIRS.find((d) => pressed(p, d));             // newest press wins
   if (fresh) players[n].dir = fresh;
-  else if (!down(p.held, players[n].dir)) players[n].dir = DIRS.find((d) => down(p.held, d)) ?? null;
+  else if (!players[n].dir || !held(p, players[n].dir)) players[n].dir = DIRS.find((d) => held(p, d)) ?? null;
 }
 ```
 

@@ -4,7 +4,7 @@
 // the mobile menu, copy buttons on code, and the interactive avatar demo.
 import "./site.css";
 import "./docs.css";
-import { ControllerHost } from "../sdk/host";
+import { StickDriftHost } from "../sdk/host";
 import type { PadLook } from "../../shared/protocol";
 
 const sections = [...document.querySelectorAll<HTMLElement>("section.doc")];
@@ -126,7 +126,7 @@ function avatarDemo(root: HTMLElement) {
   const json = root.querySelector<HTMLElement>(".live-json")!;
   let pad: number | null = null;
   let chosen = 0;
-  let host: ControllerHost | null = null;
+  let host: StickDriftHost | null = null;
 
   function apply() {
     for (const c of chips.children) c.setAttribute("aria-pressed", String(Number((c as HTMLElement).dataset.i) === chosen));
@@ -138,7 +138,7 @@ function avatarDemo(root: HTMLElement) {
   start.addEventListener("click", () => {
     start.hidden = true;
     status.textContent = "Opening a room…";
-    host = new ControllerHost({ origin: location.origin, title: "Avatars demo", look: { layout: "dpad-ab" }, p2p: false });
+    host = new StickDriftHost({ origin: location.origin, title: "Avatars demo", look: { layout: "dpad-ab" }, p2p: false });
     host.on("open", (code) => {
       status.textContent = `Room ${code} is live. Pick a player:`;
       chips.hidden = false;

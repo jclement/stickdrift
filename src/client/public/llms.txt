@@ -2,7 +2,7 @@
 
 > Turn every phone in the room into a game controller. A game (the host) opens a room on a Cloudflare relay and shows a QR code; each phone that scans it becomes a gamepad (d-pad, stick, buzzer, quiz buttons, tilt wheel, touchpad, or a custom layout) whose input reaches the game as 16-byte snapshots over WebRTC peer-to-peer (~1 ms on a LAN) or the relay (~55-65 ms). No app, no accounts, no API key. (The name is a joke about worn analogue sticks drifting; touchscreens don't.)
 
-Relay: https://stickdrift.net. Browser SDK: `import { ControllerHost } from "https://stickdrift.net/sdk.js"`. Go: `github.com/jclement/stickdrift/go` (in progress). Read presses as latched edges (`poll().pressed`), not only held state.
+Relay: https://stickdrift.net. Browser SDK: `import { StickDriftHost, pressed, held } from "https://stickdrift.net/sdk.js"` (types at `/sdk.d.ts`). Go: `github.com/jclement/stickdrift/go`, package `stickdrift`. Read presses as latched edges (`pressed(p, "A")` in JS, `JustPressed` after `Tick` in Go), not only held state.
 
 ## Start here
 
@@ -20,7 +20,7 @@ Relay: https://stickdrift.net. Browser SDK: `import { ControllerHost } from "htt
 
 ## Reference
 
-- [SDKs](https://stickdrift.net/docs/sdks.md): JavaScript `ControllerHost` and the Go package
+- [SDKs](https://stickdrift.net/docs/sdks.md): JavaScript `StickDriftHost` and the Go package `stickdrift`
 - [Protocol](https://stickdrift.net/protocol.md): WebSocket endpoints, JSON messages, the 16-byte input frame, WebRTC signalling
 - [Layouts as JSON](https://stickdrift.net/api/v1/layouts)
 

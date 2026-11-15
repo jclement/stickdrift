@@ -3,16 +3,16 @@
 // test harness for the relay and every layout.
 import "./site.css";
 import qrcode from "qrcode-generator";
-import { ControllerHost, down, type Pad } from "../sdk/host";
+import { StickDriftHost, down, type Pad } from "../sdk/host";
 import { BUTTON_NAMES, LAYOUTS, type ButtonName } from "../../shared/protocol";
 
 const PALETTE = ["#ff4d6d", "#3a86ff", "#38d996", "#ffbe0b", "#b388ff", "#ff8c1a", "#2ee6e6", "#ff6fb5"];
 const $ = (id: string) => document.getElementById(id)!;
 
 let layout = "dpad-ab";
-const host = new ControllerHost({ origin: location.origin, title: "Demo", look: look() });
+const host = new StickDriftHost({ origin: location.origin, title: "Demo", look: look() });
 // For automated end-to-end checks (scripts/e2e.ts).
-(window as unknown as { __host: ControllerHost }).__host = host;
+(window as unknown as { __host: StickDriftHost }).__host = host;
 
 /** A sample custom layout, so the Custom chip shows something real. */
 const SAMPLE_CUSTOM = {
