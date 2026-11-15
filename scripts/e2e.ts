@@ -81,6 +81,31 @@ try {
   const avg = (s: { samples?: number[] }) => (s.samples?.length ? (s.samples.reduce((a, b) => a + b, 0) / s.samples.length).toFixed(1) : "-");
   console.log(`round trips: P2P ${avg(d2.p2pRtt)} ms, relay ${avg(d2.relayRtt)} ms`);
   if (dbg.path !== "p2p") throw new Error(`expected input over P2P, got ${dbg.path}`);
+
+  // Resilience 1: the game's relay socket blips. P2P must carry on.
+  // An abrupt drop, as a network blip delivers it (1006). (A clean close()
+  // from the client would wait on the relay's half of the close handshake.)
+  await host("(() => { const ws = window.__host.ws; ws.close(); ws.onclose({ code: 1006 }); })()");
+  await until("host back on the relay", () => host("window.__host.online && !!window.__host.joinUrl"), (v) => v === true, 10000);
+  await pad("window.__pad.press('B', true)");
+  await until("B after a relay blip", () => host("window.__host.pads.get(0).state.buttons"), (b) => ((b as number) & 32) !== 0, 3000);
+  await pad("window.__pad.press('B', false)");
+  const afterBlip = JSON.parse((await pad("JSON.stringify(window.__pad.debug())")) as string);
+  if (afterBlip.path !== "p2p") throw new Error(`P2P should survive a host relay blip, got ${afterBlip.path}`);
+  console.log("host relay blip: input stayed on P2P");
+
+  // Resilience 2: the game drops its end of the data channel. The phone
+  // must fall back to the relay quickly, then negotiate P2P again.
+  const t0 = Date.now();
+  await host("window.__host.peers.get(0).close()");
+  await until("fallback to the relay", () => pad("window.__pad.debug().path"), (p) => p === "relay", 3000);
+  console.log(`channel lost: fell back to the relay in ${Date.now() - t0} ms`);
+  await pad("window.__pad.press('X', true)");
+  await until("X over the relay", () => host("window.__host.pads.get(0).state.buttons"), (b) => ((b as number) & 64) !== 0, 3000);
+  await pad("window.__pad.press('X', false)");
+  await until("P2P again", () => pad("window.__pad.debug().path === 'p2p' || (window.__pad.press('Y', true), window.__pad.press('Y', false), false)"), (v) => v === true, 15000);
+  const back = JSON.parse((await pad("JSON.stringify(window.__pad.debug())")) as string);
+  console.log(`P2P renegotiated after ${Date.now() - t0} ms (attempts ${back.p2pAttempts}, fallbacks ${back.p2pFallbacks})`);
   console.log("PASS");
 } catch (e) {
   failed = true;

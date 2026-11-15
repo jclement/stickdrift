@@ -1,0 +1,183 @@
+<!doctype html>
+<!--
+  web-pong: a complete StickDrift game in one file. Two or more phones join by
+  QR code and get the "paddle" layout: the slider moves your paddle, A serves.
+  Even seats play on the bottom team, odd seats on the top; extra players
+  stack up as more paddles. It uses only /sdk.js (plus a QR library).
+
+  Open it from any static server (see README.md). ?origin=http://localhost:8787
+  points it at a local relay instead of https://stickdrift.net.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StickDrift Pong</title>
+    <style>
+      :root { --bg: #0d0f1a; --fg: #f4f1ea; --dim: #8a8fa8; --bottom: #ff4d6d; --top: #3a86ff; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 16px/1.4 system-ui, sans-serif; overflow: hidden; }
+      canvas { display: block; width: 100vw; height: 100vh; }
+      #join { position: fixed; right: 16px; top: 16px; background: #fff; color: #111; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 8px 30px #0008; transition: transform 0.3s, opacity 0.3s; }
+      #join.small { transform: scale(0.45); transform-origin: top right; opacity: 0.85; }
+      #join svg { width: 180px; height: 180px; display: block; }
+      #join b { display: block; font-size: 22px; letter-spacing: 0.15em; margin-top: 6px; }
+      #join small { color: #555; }
+      #status { position: fixed; left: 16px; bottom: 12px; color: var(--dim); font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="court"></canvas>
+    <div id="join"><div id="qr"></div><b id="code">·····</b><small>scan to play</small></div>
+    <div id="status">connecting…</div>
+    <script type="module">
+      const params = new URLSearchParams(location.search);
+      const origin = params.get("origin") ?? "https://stickdrift.net";
+      const { StickDriftHost, pressed } = await import(`${origin}/sdk.js`);
+      const { default: qrcode } = await import("https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/+esm");
+
+      // ---- Tuning ----
+      const WIN = 7; // points to win
+      const BALL_SPEED = 0.55; // court heights per second at serve
+      const SPEEDUP = 1.06; // per paddle hit
+      const PADDLE_W = 0.16; // fraction of court width
+      const COLOURS = { bottom: "#ff4d6d", top: "#3a86ff" };
+
+      // ---- Room ----
+      const host = new StickDriftHost({ title: "Pong", look: { layout: "paddle", labels: { A: "SERVE" }, theme: { style: "neon" } } });
+      const $ = (id) => document.getElementById(id);
+
+      host.on("open", (code, joinUrl) => {
+        const qr = qrcode(0, "M");
+        qr.addData(joinUrl);
+        qr.make();
+        $("qr").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+        $("code").textContent = code;
+      });
+      host.on("close", () => ($("status").textContent = "reconnecting…"));
+      host.on("join", (pad) => {
+        const team = teamOf(pad.pad);
+        host.setPad(pad.pad, { color: COLOURS[team], label: team === "bottom" ? "BOTTOM" : "TOP", banner: team.toUpperCase() });
+        host.haptic(pad.pad, 40);
+      });
+
+      const teamOf = (n) => (n % 2 === 0 ? "bottom" : "top");
+
+      // ---- Game state (court units: width 1, height 1) ----
+      const score = { bottom: 0, top: 0 };
+      let ball = null; // {x, y, vx, vy} while in play
+      let server = "bottom"; // who serves next
+      let winner = null;
+      const paddleX = new Map(); // pad -> paddle centre x
+
+      /** paddles lists each team's paddles: the first at the goal line, extra players further in. */
+      function paddles() {
+        const out = [];
+        const rank = { bottom: 0, top: 0 };
+        for (const [n, p] of [...host.pads].sort((a, b) => a[0] - b[0])) {
+          if (!p.connected) continue;
+          const team = teamOf(n);
+          const depth = rank[team]++ * 0.12;
+          out.push({ n, team, x: paddleX.get(n) ?? 0.5, y: team === "bottom" ? 0.94 - depth : 0.06 + depth, p2p: p.p2p, rtt: p.rtt });
+        }
+        return out;
+      }
+
+      function serve(team) {
+        const dir = team === "bottom" ? -1 : 1;
+        const angle = (Math.random() - 0.5) * 0.9;
+        ball = { x: 0.5, y: team === "bottom" ? 0.8 : 0.2, vx: Math.sin(angle) * BALL_SPEED, vy: dir * Math.cos(angle) * BALL_SPEED };
+      }
+
+      function point(team) {
+        score[team]++;
+        ball = null;
+        server = team === "bottom" ? "top" : "bottom";
+        for (const [n, p] of host.pads) if (p.connected) host.haptic(n, teamOf(n) === team ? 60 : [80, 60, 80]);
+        if (score[team] >= WIN) winner = team;
+        const msg = winner ? `${winner.toUpperCase()} WINS · A for a new game` : `${score.bottom} : ${score.top}`;
+        host.setLook({ layout: "paddle", labels: { A: "SERVE" }, theme: { style: "neon" }, message: msg });
+      }
+
+      // ---- Loop ----
+      let last = performance.now();
+      function frame(now) {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        // poll() once per frame: slider positions plus latched presses.
+        for (const [n, p] of host.poll()) {
+          if (!p.connected) continue;
+          paddleX.set(n, 0.5 + p.state.lx * (0.5 - PADDLE_W / 2));
+          if (pressed(p, "A")) {
+            if (winner) Object.assign(score, { bottom: 0, top: 0 }), (winner = null);
+            else if (!ball && teamOf(n) === server) serve(server);
+          }
+        }
+        step(dt);
+        draw();
+        requestAnimationFrame(frame);
+      }
+
+      function step(dt) {
+        if (!ball) return;
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        if (ball.x < 0.01 || ball.x > 0.99) ball.vx = -ball.vx, (ball.x = Math.max(0.01, Math.min(0.99, ball.x)));
+        for (const pd of paddles()) {
+          const moving = pd.team === "bottom" ? ball.vy > 0 : ball.vy < 0;
+          if (moving && Math.abs(ball.y - pd.y) < 0.015 && Math.abs(ball.x - pd.x) < PADDLE_W / 2 + 0.01) {
+            ball.vy = -ball.vy * SPEEDUP;
+            ball.vx = ((ball.x - pd.x) / (PADDLE_W / 2)) * Math.abs(ball.vy) * 0.8; // aim with where it hits
+            host.haptic(pd.n, 25);
+          }
+        }
+        if (ball.y > 1.02) point("top");
+        else if (ball && ball.y < -0.02) point("bottom");
+      }
+
+      // ---- Drawing ----
+      const canvas = $("court");
+      const ctx = canvas.getContext("2d");
+      function draw() {
+        const dpr = devicePixelRatio || 1;
+        const W = (canvas.width = innerWidth * dpr), H = (canvas.height = innerHeight * dpr);
+        const cw = Math.min(W, H * 0.62), ox = (W - cw) / 2; // court is portrait, centred
+        const X = (x) => ox + x * cw, Y = (y) => y * H;
+        ctx.fillStyle = "#0d0f1a";
+        ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = "#ffffff22";
+        ctx.lineWidth = 2 * dpr;
+        ctx.strokeRect(ox, 0, cw, H);
+        ctx.setLineDash([10 * dpr, 10 * dpr]);
+        ctx.beginPath(); ctx.moveTo(ox, H / 2); ctx.lineTo(ox + cw, H / 2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = `bold ${64 * dpr}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.fillStyle = COLOURS.top + "66"; ctx.fillText(score.top, X(0.5), H * 0.32);
+        ctx.fillStyle = COLOURS.bottom + "66"; ctx.fillText(score.bottom, X(0.5), H * 0.76);
+        const pads = paddles();
+        ctx.font = `${12 * dpr}px system-ui`;
+        for (const pd of pads) {
+          ctx.fillStyle = COLOURS[pd.team];
+          ctx.fillRect(X(pd.x - PADDLE_W / 2), Y(pd.y) - 5 * dpr, PADDLE_W * cw, 10 * dpr);
+          ctx.fillStyle = "#ffffffaa";
+          const path = pd.p2p ? "P2P" : "relay";
+          ctx.fillText(`P${pd.n + 1} · ${path}${pd.rtt ? ` ${Math.round(pd.rtt)} ms` : ""}`, X(pd.x), Y(pd.y) + (pd.team === "bottom" ? 22 : -14) * dpr);
+        }
+        if (ball) {
+          ctx.fillStyle = "#f4f1ea";
+          ctx.beginPath(); ctx.arc(X(ball.x), Y(ball.y), 8 * dpr, 0, Math.PI * 2); ctx.fill();
+        } else {
+          ctx.fillStyle = "#f4f1ea";
+          ctx.font = `${20 * dpr}px system-ui`;
+          const teams = new Set(pads.map((p) => p.team));
+          const text = winner ? `${winner.toUpperCase()} WINS — press A` : teams.size < 2 ? "Waiting for a player on each side…" : `${server.toUpperCase()} to serve — press A`;
+          ctx.fillText(text, X(0.5), H / 2 - 16 * dpr);
+        }
+        $("join").classList.toggle("small", pads.length >= 2);
+        $("status").textContent = host.online ? `room ${host.code} · ${pads.length} player${pads.length === 1 ? "" : "s"}` : "reconnecting…";
+      }
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
