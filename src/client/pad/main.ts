@@ -159,7 +159,7 @@ setInterval(() => {
 /** updateSwapLabel names the layout the flip button switches to. */
 function updateSwapLabel() {
   const other = swapPartner(currentLayout());
-  swapBtn.textContent = other === "stick-ab" || other === "gamepad" ? "STICK" : "D-PAD";
+  swapBtn.textContent = other === "stick-ab" || other === "gamepad" ? "SWITCH TO STICK" : "SWITCH TO D-PAD";
 }
 
 function applyLook() {
@@ -201,11 +201,17 @@ function currentLayout(): string {
   return layoutId;
 }
 
+/** The surface size the current layout was built for. */
+let builtW = 0;
+let builtH = 0;
+
 function relayout() {
   for (const c of owners.values()) c.up(-1);
   owners.clear();
   input.releaseAll();
   built = build(currentLayout(), input, surface, look);
+  builtW = surface.clientWidth;
+  builtH = surface.clientHeight;
   const portrait = innerHeight > innerWidth;
   rotateScreen.classList.toggle("hidden", !(built.needsLandscape && portrait));
   if (built.usesTilt && !document.body.classList.contains("preview")) startTilt();
@@ -371,10 +377,34 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-addEventListener("resize", () => {
-  if (built) relayout();
+// Refit whenever the usable screen changes. Phones are inconsistent about
+// which event they fire (iOS often fires none after rotating or returning
+// to the tab), so listen to all of them and keep a cheap watchdog that
+// compares the surface with the size the layout was built for.
+function refitIfNeeded() {
+  if (built && (surface.clientWidth !== builtW || surface.clientHeight !== builtH)) relayout();
+}
+const refitSoon = () => {
+  refitIfNeeded();
+  requestAnimationFrame(() => requestAnimationFrame(refitIfNeeded));
+  setTimeout(refitIfNeeded, 350);
+};
+addEventListener("resize", refitSoon);
+addEventListener("orientationchange", refitSoon);
+addEventListener("pageshow", refitSoon);
+document.addEventListener("fullscreenchange", refitSoon);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refitSoon();
 });
+window.visualViewport?.addEventListener("resize", refitSoon);
+setInterval(refitIfNeeded, 400);
 
+$("leave").addEventListener("click", () => {
+  // Navigating away closes the socket; the game sees the seat leave. The
+  // join screen then offers to rejoin this room or enter another code.
+  input.releaseAll();
+  location.assign("/j");
+});
 swapBtn.addEventListener("click", () => {
   localOverride = swapPartner(currentLayout());
   relayout();

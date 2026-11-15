@@ -6,3 +6,4 @@ dist/
 .env*
 mise.local.toml
 .DS_Store
+.briefs/
