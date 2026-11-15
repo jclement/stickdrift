@@ -4,6 +4,7 @@
 // immediately whenever the state actually changes.
 import { Button, type ButtonName } from "../../shared/protocol";
 import type { Input } from "./input";
+import { tick } from "./haptics";
 
 /** A pointer-handling widget on the control surface. */
 export interface Control {
@@ -46,10 +47,7 @@ function inRect(p: Place, x: number, y: number, round: boolean): boolean {
   return round ? dx * dx + dy * dy <= 1 : Math.abs(dx) <= 1 && Math.abs(dy) <= 1;
 }
 
-/** haptic gives a tiny tick where the platform supports it (Android). */
-export function tick(ms = 8) {
-  if ("vibrate" in navigator) navigator.vibrate(ms);
-}
+export { tick };
 
 // ---- Buttons ----
 

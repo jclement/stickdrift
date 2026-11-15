@@ -35,9 +35,12 @@ description = "Everything that must pass before calling work done"
 depends = ["lint", "test"]
 
 [tasks.deploy]
-description = "Build and deploy to controller.onewheelgeek.net"
-depends = ["build"]
-run = "bunx wrangler deploy"
+description = "Build and deploy to controller.onewheelgeek.net (stamps a build id so phones self-update)"
+run = """
+export BUILD="$(git rev-parse --short HEAD)-$(date +%s)"
+bunx vite build && bunx vite build -c vite.sdk.config.ts && cp PROTOCOL.md dist/client/protocol.md
+bunx wrangler deploy --var BUILD:$BUILD
+"""
 
 [tasks."dev:reset"]
 description = "Remove build output and local Durable Object state"

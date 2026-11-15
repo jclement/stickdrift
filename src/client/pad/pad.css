@@ -678,3 +678,32 @@ body.style-candy .backdrop { background: radial-gradient(60% 60% at 20% 80%, rgb
   letter-spacing: 0.08em;
 }
 .menu-actions button.danger { border-color: #ff4d6d; color: #ff8fa3; }
+.menu-actions button.update { border-color: #38d996; color: #6ef0a0; }
+
+/* ---- Visual buzz (the game's haptics, made visible) ---- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+  opacity: 0;
+  box-shadow: inset 0 0 0 6px var(--accent), inset 0 0 60px 20px rgb(var(--accent-rgb) / 0.55);
+}
+body.buzz::after { animation: buzz-glow var(--buzz-ms, 300ms) ease-out; }
+body.buzz .surface { animation: buzz-shake var(--buzz-ms, 300ms) linear; }
+@keyframes buzz-glow {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes buzz-shake {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-5px, 2px); }
+  30% { transform: translate(4px, -3px); }
+  45% { transform: translate(-3px, 3px); }
+  60% { transform: translate(3px, -1px); }
+  80% { transform: translate(-1px, 1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.buzz .surface { animation: none; }
+}

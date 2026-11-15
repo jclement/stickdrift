@@ -27,7 +27,10 @@ app.use("*", async (c, next) => {
   );
 });
 
-app.get("/api/v1/health", (c) => c.json({ status: "ok", version: VERSION, protocol: PROTOCOL_VERSION, update_available: false }));
+app.get("/api/v1/health", (c) => {
+  c.header("Cache-Control", "no-store");
+  return c.json({ status: "ok", version: VERSION, build: c.env.BUILD ?? "dev", protocol: PROTOCOL_VERSION, update_available: false });
+});
 
 app.get("/api/v1/layouts", (c) => c.json({ data: LAYOUTS }));
 
@@ -58,7 +61,11 @@ async function page(env: Env, req: Request, path: string): Promise<Response> {
   const url = new URL(req.url);
   url.pathname = path;
   const res = await env.ASSETS.fetch(new Request(url, { headers: req.headers }));
-  return new Response(res.body, res);
+  const out = new Response(res.body, res);
+  // Pages must revalidate so a reload after a deploy gets the new build;
+  // their scripts and styles have content-hashed names and cache forever.
+  out.headers.set("Cache-Control", "no-cache");
+  return out;
 }
 
 export default app;

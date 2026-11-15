@@ -10,6 +10,7 @@ import "./pad.css";
 import { cleanCustom, cleanTheme, isCode, LAYOUTS, type CustomLayout, type PadLook, type Theme, type ToPadMessage } from "../../shared/protocol";
 import { Input, describe } from "./input";
 import { Transport } from "./transport";
+import { haptic, setupHaptics } from "./haptics";
 import { build, swapPartner, type Built } from "./layouts";
 import type { Control } from "./controls";
 
@@ -91,7 +92,7 @@ function onMessage(m: ToPadMessage) {
       else showStatus("WAITING FOR THE GAME", "The big screen isn't connected right now. Hang tight.");
       break;
     case "haptic":
-      if ("vibrate" in navigator) navigator.vibrate(m.ms);
+      haptic(m.ms);
       break;
   }
 }
@@ -135,6 +136,7 @@ function renderDebug() {
         ["Layout", currentLayout()],
         ["Game connected", hostOnline ? "yes" : "no"],
         ["Device", deviceId().slice(0, 12)],
+        ["Build", `${__BUILD__}${updateReady ? " (update waiting)" : ""}`],
       ]
     : [["Status", "preview (no connection)"], ["Holding", held], ["Layout", currentLayout()]];
   $("debug-rows").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${escapeHtml(v)}</dd>`).join("");
@@ -454,6 +456,53 @@ function customFromHash(): CustomLayout | null {
   }
 }
 
+// ---- Self-update ----
+
+declare const __BUILD__: string;
+
+/** How long without a touch before a pending update applies itself. */
+const IDLE_BEFORE_UPDATE_MS = 20_000;
+let lastTouch = performance.now();
+let updateReady = false;
+
+/** checkForUpdate asks the server which build is live. A home-screen app can
+ *  live in memory for days, so this is how it learns about a new deploy. */
+async function checkForUpdate() {
+  if (__BUILD__ === "dev") return;
+  try {
+    const res = await fetch("/api/v1/health", { cache: "no-store" });
+    const h = (await res.json()) as { build?: string };
+    if (h.build && h.build !== "dev" && h.build !== __BUILD__) {
+      updateReady = true;
+      $("update").classList.remove("hidden");
+    }
+  } catch {
+    // Offline for a moment; try again next time.
+  }
+}
+
+/** applyUpdateIfQuiet reloads into the new build, but never mid-press: only
+ *  when the app has just come back to the foreground or nobody has touched
+ *  it for a while. The device id and the room code in the URL bring the
+ *  player straight back to their seat. */
+function applyUpdateIfQuiet(force = false) {
+  if (!updateReady) return;
+  if (force || (owners.size === 0 && performance.now() - lastTouch > IDLE_BEFORE_UPDATE_MS)) {
+    input.releaseAll();
+    location.reload();
+  }
+}
+
+surface.addEventListener("pointerdown", () => (lastTouch = performance.now()), { capture: true });
+document.addEventListener("visibilitychange", async () => {
+  if (document.hidden) return;
+  await checkForUpdate();
+  applyUpdateIfQuiet(true);
+});
+setInterval(() => void checkForUpdate(), 60_000);
+setInterval(() => applyUpdateIfQuiet(), 5_000);
+$("update").addEventListener("click", () => applyUpdateIfQuiet(true));
+
 // ---- Start ----
 
 /** preview renders a layout with no connection, for the homepage gallery. */
@@ -469,6 +518,7 @@ function preview(layout: string, colour: string, custom: CustomLayout | null, th
 }
 
 function start() {
+  setupHaptics();
   const params = new URLSearchParams(location.search);
   const previewLayout = params.get("preview");
   if (previewLayout) {
