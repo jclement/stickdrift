@@ -156,6 +156,12 @@ setInterval(() => {
 
 // ---- Presentation ----
 
+/** updateSwapLabel names the layout the flip button switches to. */
+function updateSwapLabel() {
+  const other = swapPartner(currentLayout());
+  swapBtn.textContent = other === "stick-ab" || other === "gamepad" ? "STICK" : "D-PAD";
+}
+
 function applyLook() {
   const accent = look.color ?? "#ff4d6d";
   document.documentElement.style.setProperty("--accent", accent);
@@ -167,6 +173,7 @@ function applyLook() {
   hudLabel.textContent = `${who}`;
   message.textContent = look.message ?? "";
   swapBtn.classList.toggle("hidden", !(look.swap && swapPartner(layoutId)));
+  updateSwapLabel();
 }
 
 /** applyTheme switches the style preset, font, shape and colours. */
@@ -311,9 +318,30 @@ async function goFullscreen() {
   if (document.fullscreenElement) return;
   try {
     await (d.requestFullscreen?.({ navigationUI: "hide" }) ?? d.webkitRequestFullscreen?.());
+    // Once full screen, Android lets a page pin the orientation.
+    if (built?.needsLandscape) {
+      await (screen.orientation as unknown as { lock?: (o: string) => Promise<void> }).lock?.("landscape").catch(() => {});
+    }
   } catch {
     // iOS Safari has no fullscreen for pages; "Add to Home Screen" does it.
   }
+}
+
+/** isStandalone reports a home-screen launch (already full screen). */
+function isStandalone(): boolean {
+  return matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches || (navigator as unknown as { standalone?: boolean }).standalone === true;
+}
+
+/** maybeShowIosHint suggests Add to Home Screen once, on iPhone Safari. */
+function maybeShowIosHint() {
+  const iphone = /iPhone|iPod/.test(navigator.userAgent);
+  if (!iphone || isStandalone() || localStorage.getItem("controller.iosHint") === "done") return;
+  const hint = $("ios-hint");
+  hint.classList.remove("hidden");
+  $("ios-hint-close").addEventListener("click", () => {
+    hint.classList.add("hidden");
+    localStorage.setItem("controller.iosHint", "done");
+  });
 }
 
 let wakeLock: { release(): Promise<void> } | null = null;
@@ -342,6 +370,7 @@ addEventListener("resize", () => {
 swapBtn.addEventListener("click", () => {
   localOverride = swapPartner(currentLayout());
   relayout();
+  updateSwapLabel();
 });
 fullBtn.addEventListener("click", () => void goFullscreen());
 $("status-retry").addEventListener("click", () => location.assign("/j"));
@@ -350,6 +379,14 @@ $("status-retry").addEventListener("click", () => location.assign("/j"));
 
 function showJoin(prefill = "") {
   joinScreen.classList.remove("hidden");
+  // A home-screen launch lands here: offer the last room in one tap.
+  const last = localStorage.getItem("controller.lastCode");
+  if (last && isCode(last)) {
+    const btn = $("rejoin");
+    btn.textContent = `REJOIN ${last}`;
+    btn.classList.remove("hidden");
+    btn.onclick = () => location.assign(`/j/${last}`);
+  }
   const boxes = [...joinScreen.querySelectorAll("input")] as HTMLInputElement[];
   boxes.forEach((b, i) => {
     b.value = prefill[i] ?? "";
@@ -407,7 +444,9 @@ function start() {
     return;
   }
   code = fromPath;
+  localStorage.setItem("controller.lastCode", code);
   document.title = `Controller · ${code}`;
+  maybeShowIosHint();
   void keepAwake();
   connect();
 }

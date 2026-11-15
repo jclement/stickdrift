@@ -605,3 +605,23 @@ body.style-candy .backdrop { background: radial-gradient(60% 60% at 20% 80%, rgb
 .debug dt { color: var(--muted); }
 .debug dd { margin: 0; color: var(--text); word-break: break-word; }
 .debug p { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 12px 0 0; }
+
+/* iPhone: Safari can't go full screen, so suggest Add to Home Screen. */
+.ios-hint {
+  position: fixed;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 35;
+  width: min(520px, calc(100vw - 24px));
+  padding: 10px 40px 10px 14px;
+  border-radius: 14px;
+  background: rgb(10 8 18 / 0.92);
+  border: 1px solid var(--accent);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+.ios-hint .share::before { content: "⬆︎ "; }
+.ios-hint button { position: absolute; top: 6px; right: 8px; background: none; border: 0; color: var(--text); font-size: 16px; }

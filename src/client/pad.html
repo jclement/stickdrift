@@ -23,7 +23,7 @@
       <span class="chip"><span class="dot"></span><span id="hud-label">CONTROLLER</span></span>
       <span class="chip rtt" id="hud-rtt">-- ms</span>
       <span class="spacer"></span>
-      <button id="swap" class="hidden" aria-label="Switch between d-pad and stick">D-PAD / STICK</button>
+      <button id="swap" class="hidden" aria-label="Switch between d-pad and stick">STICK</button>
       <button id="debug-btn" aria-label="Connection details">i</button>
       <button id="fullscreen" aria-label="Full screen">⛶</button>
     </div>
@@ -39,6 +39,7 @@
       <div>
         <h1>ENTER CODE</h1>
         <p>The five letters on the big screen.</p>
+        <button class="big-btn hidden" id="rejoin">REJOIN</button>
         <div class="codebox">
           <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 1" />
           <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 2" />
@@ -47,6 +48,11 @@
           <input maxlength="1" autocapitalize="characters" autocomplete="off" inputmode="text" aria-label="Letter 5" />
         </div>
       </div>
+    </div>
+
+    <div class="ios-hint hidden" id="ios-hint">
+      <b>Want full screen?</b> Tap <span class="share">Share</span> then <b>Add to Home Screen</b>, and open the controller from there.
+      <button id="ios-hint-close" aria-label="Dismiss">✕</button>
     </div>
 
     <div class="overlay hidden" id="status">

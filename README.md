@@ -35,6 +35,28 @@ bun scripts/smoke.ts https://controller.onewheelgeek.net
 | `/api/v1/health`, `/api/v1/layouts` | JSON |
 | `/ws/host/CODE?key=…`, `/ws/pad/CODE?device=…` | WebSockets |
 
+## On the phone
+
+- **P2P first, Cloudflare as fallback.** Input goes over a direct WebRTC data
+  channel when the game supports it (about 1 ms on the same Wi-Fi) and over
+  the Cloudflare relay otherwise (about 55-65 ms from Alberta). The HUD badge
+  says which (`P2P · 1 ms` or `RELAY · 58 ms`).
+- **Debug panel:** the `i` button shows the path in use, ICE and data-channel
+  state, the network path picked (host/srflx/prflx), round trips for both
+  paths (last/avg/p90), frame counts, repeats, reconnects, and live input.
+- **Full screen:** Android goes full screen on the first touch and locks to
+  landscape. iPhone Safari can't (Apple doesn't allow it for pages), so the
+  controller suggests Add to Home Screen once; launched from there it is full
+  screen and offers to rejoin the last room in one tap.
+
+## Testing
+
+```sh
+mise run check                                          # typecheck + workerd tests
+bun scripts/smoke.ts https://controller.onewheelgeek.net  # relay latency, host and pad in Bun
+bun scripts/e2e.ts https://controller.onewheelgeek.net    # two headless Chrome tabs: host + phone, checks P2P
+```
+
 ## Configuration
 
 None. No secrets, no environment variables. The Durable Object binding and

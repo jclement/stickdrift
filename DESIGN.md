@@ -48,6 +48,12 @@ phone (pad page) ──wss──▶ Worker ──▶ Session DO (one per room co
 9. **Themes are presets, not CSS.** Five styles, four fonts, three shapes and
    hex colours. A host can make a phone look like its game without being able
    to inject markup or styles into a stranger's browser.
+11. **P2P first, relay as fallback.** Phones offer an unordered,
+    no-retransmit WebRTC data channel (relay does the signalling, STUN only, no
+    TURN since the relay already is the fallback). Lost UDP packets are covered
+    by repeating each change at +25 and +80 ms plus a 250 ms keepalive; hosts
+    drop anything not newer by sequence number. Measured: 0.3-1 ms P2P vs
+    55-65 ms relay (YVR edge) for the same pair of endpoints.
 10. **Vanilla DOM for the pad.** No framework between a touch and a frame;
     animations only touch transform, opacity and shadows.
 
@@ -55,9 +61,9 @@ phone (pad page) ──wss──▶ Worker ──▶ Session DO (one per room co
 
 - iOS Safari can't vibrate or go fullscreen from a page; "Add to Home Screen"
   gives fullscreen via the manifest.
-- WebSockets ride TCP: a lost packet stalls later frames briefly. A WebRTC
-  data channel (unreliable, peer-to-peer on the LAN) would shave latency
-  further; the relay could act as its signalling server. Not built.
+- Relay-path input rides TCP: a lost packet stalls later frames briefly. P2P
+  avoids this; networks that block UDP between devices (some guest Wi-Fi)
+  fall back to the relay.
 - Rooms trust anyone with the code to join as a pad; that's the point. Hosts
   can close the room (`open:false`) or kick.
 - Tilt steering assumes landscape and is not calibrated.

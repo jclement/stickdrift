@@ -4,7 +4,7 @@
   "description": "Every phone is a game controller.",
   "start_url": "/j",
   "display": "fullscreen",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#07060b",
   "theme_color": "#07060b",
   "icons": [
