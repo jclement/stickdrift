@@ -7,18 +7,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
-    <title>Controller · Demo host</title>
+    <title>StickDrift · Demo host</title>
   </head>
   <body class="min-h-screen grid-bg">
     <header class="h-12 flex items-center gap-3 px-4 border-b border-line bg-ink/80 backdrop-blur sticky top-0 z-10">
-      <a href="/" class="font-display font-bold tracking-widest text-white">CONTROLLER</a>
+      <a href="/" class="font-display font-bold tracking-widest text-white">STICKDRIFT</a>
       <span class="text-muted text-sm">/ demo host</span>
+      <a href="/docs" class="hidden sm:inline text-sm text-muted hover:text-white ml-3">Docs</a>
       <span class="flex-1"></span>
       <span id="conn" class="text-xs font-mono text-muted">connecting…</span>
     </header>
     <main class="max-w-7xl mx-auto p-4 grid gap-4 lg:grid-cols-[340px_1fr]">
       <section class="card p-5 flex flex-col items-center gap-3 self-start">
         <p class="font-display text-sm tracking-widest text-muted">SCAN TO JOIN</p>
+        <p class="text-xs text-muted -mt-2">Point a phone camera here. Yes, the one already in your hand.</p>
         <div id="qr" class="bg-white rounded-2xl p-3 w-64 h-64 grid place-items-center"></div>
         <div id="code" class="font-display text-5xl font-bold tracking-[0.25em] text-white">·····</div>
         <a id="url" class="font-mono text-xs text-muted break-all text-center" target="_blank"></a>
@@ -28,12 +30,12 @@
           <label class="mt-3 flex items-center gap-2 text-sm"><input id="diag" type="checkbox" checked /> 8-way d-pad (diagonals)</label>
           <label class="mt-1 flex items-center gap-2 text-sm"><input id="swap" type="checkbox" checked /> let players flip d-pad ⇄ stick</label>
         </div>
-        <p class="text-xs text-muted text-center">This page is a working host: everything you press on your phone shows up here, live.</p>
+        <p class="text-xs text-muted text-center">This page is a real host: every press on every phone shows up here, live. Change the layout and watch every phone obey.</p>
       </section>
       <section>
         <div id="empty" class="card p-10 text-center">
-          <p class="font-display text-2xl text-white">No pads yet</p>
-          <p class="text-muted mt-2">Scan the code with a phone (or open the link in another tab) and press something.</p>
+          <p class="font-display text-2xl text-white">Nobody here yet.</p>
+          <p class="text-muted mt-2">Scan the code with a phone, or open the link in another tab if nobody's around. We won't tell. Then press something.</p>
         </div>
         <div id="pads" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
       </section>

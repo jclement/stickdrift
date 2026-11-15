@@ -1,11 +1,15 @@
-# Controller
+# StickDrift
 
 Every phone is a game controller. A game opens a room, shows a QR code, and
 every phone that scans it becomes a gamepad (d-pad, stick, buzzer, steering
-wheel, or any layout the game describes), relayed to the game over WebSockets
-with as little latency as Cloudflare's edge allows. No app, no accounts.
+wheel, or any layout the game describes). Input goes peer-to-peer over WebRTC
+(about 1 ms on the same Wi-Fi), with a Cloudflare relay as the fallback. No
+app, no accounts.
 
-Live at **https://controller.onewheelgeek.net** (try `/demo`).
+**Docs: https://stickdrift.net/docs.** Using an AI coding agent? Point it at
+https://stickdrift.net/agents.md (and `/llms.txt`).
+
+Live at **https://stickdrift.net** (try `/demo`).
 
 ## Quick start
 
@@ -13,20 +17,23 @@ Live at **https://controller.onewheelgeek.net** (try `/demo`).
 mise run setup     # bun install
 mise run dev       # build pages, then wrangler dev on :8787 (all interfaces, so phones on the LAN can join)
 mise run check     # typecheck + tests (in the Workers runtime)
-mise run deploy    # build and deploy to controller.onewheelgeek.net
+mise run deploy    # build and deploy to stickdrift.net
 ```
 
 Smoke and latency test any deployment:
 
 ```sh
-bun scripts/smoke.ts https://controller.onewheelgeek.net
+bun scripts/smoke.ts https://stickdrift.net
 ```
 
 ## Pages
 
 | Path | What |
 |---|---|
-| `/` | Homepage: how it works, live layout gallery, custom-layout playground, developer docs |
+| `/` | Homepage: how it works, live layout gallery, custom-layout playground, developer intro |
+| `/docs` | Documentation, rendered at build time from `docs/*.md` and `PROTOCOL.md` |
+| `/docs/<page>.md`, `/agents.md`, `/llms.txt` | The same docs as raw Markdown, for agents |
+| `/designer` | Layout designer: drag controls onto a phone, copy the custom-layout JSON |
 | `/j/CODE` | The phone controller (`/j` alone asks for a code) |
 | `/j?preview=LAYOUT&color=%23hex&style=…` | A layout with no room, for previews |
 | `/demo` | A working host: QR code, layout picker, live view of every pad |
@@ -53,8 +60,8 @@ bun scripts/smoke.ts https://controller.onewheelgeek.net
 
 ```sh
 mise run check                                          # typecheck + workerd tests
-bun scripts/smoke.ts https://controller.onewheelgeek.net  # relay latency, host and pad in Bun
-bun scripts/e2e.ts https://controller.onewheelgeek.net    # two headless Chrome tabs: host + phone, checks P2P
+bun scripts/smoke.ts https://stickdrift.net  # relay latency, host and pad in Bun
+bun scripts/e2e.ts https://stickdrift.net    # two headless Chrome tabs: host + phone, checks P2P
 ```
 
 ## Configuration
@@ -67,7 +74,7 @@ custom domain are in `wrangler.jsonc`.
 | Task | What it does |
 |---|---|
 | `setup` | install dependencies |
-| `build` | Vite pages + SDK + protocol.md into `dist/client` |
+| `build` | Vite pages (docs rendered from Markdown) + SDK + protocol.md into `dist/client` |
 | `dev` | build, then `wrangler dev` |
 | `test` | vitest in workerd: protocol units and host/pad relay integration |
 | `lint` | `tsc -b` over worker and client |
@@ -78,3 +85,14 @@ custom domain are in `wrangler.jsonc`.
 ## License
 
 MIT.
+
+## Documentation
+
+The docs live in `docs/*.md` (plus `PROTOCOL.md`), one file per section;
+`src/client/site/docs-index.ts` sets their order. At build time
+`vite.config.ts` renders them into `/docs` with `src/client/site/markdown.ts`,
+which also turns ```` ```preview ```` and ```` ```custom ```` fences into live
+controller previews, and publishes each file raw at `/docs/<slug>.md`.
+`docs/agents.md` is served at `/agents.md`; `src/client/public/llms.txt`
+indexes everything. Adding a page: write the Markdown, add it to
+`docs-index.ts` and `llms.txt`.

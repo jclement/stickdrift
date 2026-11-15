@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Design a custom phone controller: drag buttons, sticks and d-pads onto a phone, pick a theme, and copy the JSON." />
+    <meta name="theme-color" content="#07060b" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <title>Layout designer · StickDrift</title>
+  </head>
+  <body class="grid-bg min-h-screen">
+    <header class="site-head">
+      <a href="/" class="brand">STICKDRIFT</a>
+      <nav class="site-nav">
+        <a href="/docs">Docs</a>
+        <a href="/designer" aria-current="page">Designer</a>
+        <a href="/demo">Demo</a>
+        <a href="/agents.md" class="agent-link">For agents</a>
+      </nav>
+    </header>
+
+    <main class="designer">
+      <div class="designer-title">
+        <h1 class="font-display font-bold text-3xl md:text-4xl text-white">Layout designer</h1>
+        <p class="text-sm text-muted mt-1">
+          Drag controls onto the phone, tune them, pick a theme, then copy the JSON into <code>setLook()</code>. A controller you
+          can redesign mid-game, which no plastic one has ever let you do. Reference:
+          <a class="text-hot" href="/docs#custom-layouts">custom layouts</a>.
+        </p>
+      </div>
+
+      <!-- Left: palette, starters, theme -->
+      <aside class="panel d-palette">
+        <p class="panel-title">ADD A CONTROL</p>
+        <div id="palette" class="palette"></div>
+        <p class="panel-hint">Drag onto the phone, or tap to drop it in the middle. Thirty-two at most, for everyone's sake.</p>
+
+        <p class="panel-title mt-5">START FROM</p>
+        <div id="starters" class="flex flex-wrap gap-2"></div>
+
+        <p class="panel-title mt-5">PHONE</p>
+        <div class="fields">
+          <label class="field"><span>Orientation</span>
+            <select id="orientation"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select>
+          </label>
+          <label class="field"><span>Player colour</span><input id="color" type="color" /></label>
+          <label class="field"><span>Style</span><select id="style"></select></label>
+          <label class="field"><span>Font</span><select id="font"></select></label>
+          <label class="field"><span>Shape</span><select id="shape"></select></label>
+          <label class="field"><span>Background</span><span class="pair"><input id="bg" type="color" value="#07060b" /><label class="check"><input id="bg-default" type="checkbox" checked /> default</label></span></label>
+          <label class="field"><span>Text</span><span class="pair"><input id="text" type="color" value="#ffffff" /><label class="check"><input id="text-default" type="checkbox" checked /> default</label></span></label>
+        </div>
+      </aside>
+
+      <!-- Centre: the editable phone -->
+      <section class="d-stage">
+        <div class="stage-bar">
+          <label class="check"><input id="snap" type="checkbox" checked /> snap to grid</label>
+          <span class="flex-1"></span>
+          <span id="count" class="text-xs text-muted font-mono"></span>
+        </div>
+        <div id="stage-wrap" class="stage-wrap">
+          <div class="phone d-phone">
+            <div id="canvas" class="d-canvas" tabindex="0" aria-label="Layout canvas. Arrow keys move the selected control, Delete removes it."></div>
+          </div>
+        </div>
+        <p class="panel-hint text-center">
+          Drag to move · drag the corner handle to resize · arrows nudge (Shift for more) · Delete removes. The dashed band is
+          where the phone's status bar sits.
+        </p>
+      </section>
+
+      <!-- Right: properties of the selected control -->
+      <aside class="panel d-props">
+        <p class="panel-title">SELECTED</p>
+        <div id="props"><p class="panel-hint">Select a control to edit it.</p></div>
+      </aside>
+
+      <!-- Bottom: the real phone page, and the JSON -->
+      <section class="d-output">
+        <div class="panel">
+          <div class="flex items-center gap-2">
+            <p class="panel-title flex-1">LIVE PREVIEW</p>
+            <button id="qr-toggle" class="chip" type="button" aria-pressed="false">ON MY PHONE</button>
+          </div>
+          <div id="preview-wrap" class="phone d-preview"><iframe id="preview" title="Live preview of the layout"></iframe></div>
+          <div id="qr-box" class="qr-box" hidden>
+            <div id="qr" class="qr"></div>
+            <p class="text-xs text-muted">Scan to open this layout on your phone (a preview: no room, nothing is sent).</p>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="panel-title">THE LOOK, AS JSON</p>
+          <pre id="json" class="d-json"></pre>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button class="btn-hot btn-sm" type="button" data-copy="json">COPY JSON</button>
+            <button class="btn-ghost btn-sm" type="button" data-copy="code">COPY setLook()</button>
+            <button class="btn-ghost btn-sm" type="button" data-copy="preview">COPY PREVIEW LINK</button>
+            <button class="btn-ghost btn-sm" type="button" data-copy="share">COPY DESIGNER LINK</button>
+          </div>
+          <details class="mt-4">
+            <summary class="text-sm text-muted cursor-pointer">Load JSON</summary>
+            <textarea id="import" class="d-import" rows="6" spellcheck="false" placeholder='Paste a look or a custom layout: { "layout": "custom", "custom": { "controls": [ … ] } }'></textarea>
+            <button id="import-go" class="btn-ghost btn-sm mt-2" type="button">LOAD</button>
+            <span id="import-msg" class="text-xs text-muted ml-2"></span>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-foot">(C) 2026 Straybits Corp · MIT · <a href="/docs">Docs</a> · <a href="/agents.md">agents.md</a></footer>
+    <script type="module" src="./site/designer.ts"></script>
+  </body>
+</html>
