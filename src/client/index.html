@@ -216,9 +216,9 @@
         <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <div>
             <h3 class="font-display text-xl text-white mb-2">In the browser</h3>
-            <pre>import { ControllerHost, Button } from "https://stickdrift.net/sdk.js";
+            <pre>import { StickDriftHost, pressed } from "https://stickdrift.net/sdk.js";
 
-const host = new ControllerHost({
+const host = new StickDriftHost({
   title: "My Game",
   look: { layout: "dpad-ab", labels: { A: "JUMP", B: "FIRE" } },
 });
@@ -227,8 +227,8 @@ host.on("join", (pad) =&gt; host.setPad(pad.pad, { color: "#3a86ff", label: "P" 
 
 function frame() {
   for (const [n, p] of host.poll()) {
-    if (p.pressed &amp; (1 &lt;&lt; Button.A)) jump(n); // latched: never misses a tap
-    move(n, p.state.lx, p.state.ly);            // analog, -1..1
+    if (pressed(p, "A")) jump(n);     // latched: never misses a tap
+    move(n, p.state.lx, p.state.ly); // analog, -1..1
   }
   requestAnimationFrame(frame);
 }</pre>

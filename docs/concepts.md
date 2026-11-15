@@ -34,7 +34,7 @@ keep them (for example in `sessionStorage`) and pass them back:
 
 ```js
 const saved = JSON.parse(sessionStorage.getItem("room") ?? "{}");
-const host = new ControllerHost({ code: saved.code, key: saved.key, title: "My Game" });
+const host = new StickDriftHost({ code: saved.code, key: saved.key, title: "My Game" });
 sessionStorage.setItem("room", JSON.stringify({ code: host.code, key: host.key }));
 ```
 

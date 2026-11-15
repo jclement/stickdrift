@@ -18,10 +18,10 @@ button you press shows up on the page.
 <p id="code"></p>
 <pre id="log"></pre>
 <script type="module">
-  import { ControllerHost, Button } from "https://stickdrift.net/sdk.js";
+  import { StickDriftHost, pressed, held } from "https://stickdrift.net/sdk.js";
   import qrcode from "https://esm.sh/qrcode-generator@2.0.4";
 
-  const host = new ControllerHost({
+  const host = new StickDriftHost({
     title: "My Game",
     look: { layout: "dpad-ab", labels: { A: "JUMP", B: "FIRE" } },
   });
@@ -46,8 +46,8 @@ button you press shows up on the page.
   const log = document.getElementById("log");
   function frame() {
     for (const [n, p] of host.poll()) {
-      if (p.pressed & (1 << Button.A)) log.textContent += `P${n + 1} jumped\n`;
-      if (p.held & (1 << Button.Left)) { /* move left while held */ }
+      if (pressed(p, "A")) log.textContent += `P${n + 1} jumped\n`;
+      if (held(p, "Left")) { /* move left while held */ }
       // p.state.lx / p.state.ly: the stick, -1..1 (y is down)
     }
     requestAnimationFrame(frame);
@@ -69,9 +69,8 @@ That is the whole integration. From here:
 ## In Go
 
 The Go module `github.com/jclement/stickdrift/go` wraps the same protocol,
-including peer-to-peer WebRTC. It is **being built right now**; the shape
-below is the agreed API, and names may still shift. Check
-`go doc github.com/jclement/stickdrift/go` for what shipped.
+including peer-to-peer WebRTC (pion), so a native game gets the same
+~1 ms path as a browser one. This is a complete program:
 
 ```sh
 go get github.com/jclement/stickdrift/go
@@ -93,25 +92,41 @@ func main() {
 	ctx := context.Background()
 	host := stickdrift.NewHost(stickdrift.Options{
 		Title: "My Game",
-		Look:  stickdrift.Look{Layout: "dpad-ab", Labels: map[string]string{"A": "JUMP"}},
+		Look:  stickdrift.Look{Layout: "dpad-ab", Labels: map[stickdrift.Button]string{stickdrift.A: "JUMP"}},
 	})
-	if err := host.Start(ctx); err != nil {
-		log.Fatal(err)
+	host.Start(ctx) // connects in the background, and reconnects by itself
+	defer host.Close()
+
+	select {
+	case <-host.Ready():
+	case <-time.After(15 * time.Second):
+		log.Fatalf("could not open a room: %v", host.Info().Err)
 	}
-	fmt.Println("Join at", host.JoinURL()) // draw this as a QR code (accessor name unconfirmed)
+	fmt.Println("Join at", host.Info().JoinURL) // draw this as a QR code
 
 	tick := time.NewTicker(time.Second / 60)
+	defer tick.Stop()
 	for range tick.C {
-		host.Tick() // once per game frame: publishes this frame's presses
+		host.Tick() // once per game frame, before reading pads
+		for _, pad := range host.Joined() {
+			host.SetPad(pad.Number(), stickdrift.Look{Label: fmt.Sprintf("PLAYER %d", pad.Number()+1)})
+		}
 		for _, pad := range host.Pads() {
 			if pad.JustPressed(stickdrift.A) {
-				fmt.Println("player", pad.Number, "jumped")
+				fmt.Println("player", pad.Number()+1, "jumped")
 			}
-			x, y := pad.Stick()
-			_, _ = x, y // the left stick, -1..1
+			x, y := pad.Stick() // the left stick, -1..1 (y down)
+			_, _ = x, y
 		}
 	}
 }
+```
+
+For a terminal QR code and live input log, start from
+`examples/go-terminal` in the repository.
+
+```text
+STICKDRIFT_URL=http://localhost:8787 go run .   # use a local relay
 ```
 
 ## Any other language
@@ -139,4 +154,4 @@ development:
 mise run setup && mise run dev    # http://localhost:8787, reachable from phones on your LAN
 ```
 
-Point the browser SDK at it with `new ControllerHost({ origin: "http://<your-ip>:8787" })`.
+Point the browser SDK at it with `new StickDriftHost({ origin: "http://<your-ip>:8787" })`, and the Go one with `Options{Origin: …}` or `STICKDRIFT_URL`.

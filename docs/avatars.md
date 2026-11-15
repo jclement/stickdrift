@@ -56,8 +56,9 @@ function avatarFrom(sheet, sx, sy, size = 32) {
 }
 ```
 
-In Go, encode an `image.Image` with `image/png` into a buffer and prefix
-`data:image/png;base64,` to its base64.
+In Go, encode the image with `image/png` and pass the bytes to
+`stickdrift.AvatarPNG`, which returns the data URL or tells you why the relay
+would drop it.
 
 ## Label, colour and message
 

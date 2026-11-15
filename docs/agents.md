@@ -19,8 +19,8 @@ Markdown under `/docs/*.md`, index at `/llms.txt`).
 - Analog sticks also set the d-pad bits, so reading only the d-pad works
   with every layout.
 - Input is a full snapshot on every change; presses shorter than a frame
-  exist, so read **latched** presses (`poll().pressed` in JS,
-  `JustPressed` after `Tick` in Go), never only the held state.
+  exist, so read **latched** presses (`pressed(p, "A")` on a `poll()` entry
+  in JS, `JustPressed` after `Tick` in Go), never only the held state.
 - Looks (layout, colour, labels, theme, avatar, banner, message) can change
   at any time, per pad or for everyone.
 
@@ -53,17 +53,24 @@ confirm the controls match what the game needs. For a custom layout, use
 **Browser game:**
 
 ```js
-import { ControllerHost, Button, down } from "https://stickdrift.net/sdk.js";
-const host = new ControllerHost({ title: "<Game name>", look: { layout: "dpad-ab", labels: { A: "JUMP" } } });
+import { StickDriftHost, pressed, held } from "https://stickdrift.net/sdk.js";
+const host = new StickDriftHost({ title: "<Game name>", look: { layout: "dpad-ab", labels: { A: "JUMP" } } });
 ```
 
+TypeScript: types are at `https://stickdrift.net/sdk.d.ts`; map the URL to
+a local copy with `compilerOptions.paths`.
+
 **Go game:** `go get github.com/jclement/stickdrift/go` (package
-`stickdrift`; still being built, confirm names with `go doc`):
+`stickdrift`, import as `stickdrift "github.com/jclement/stickdrift/go"`):
 
 ```go
 host := stickdrift.NewHost(stickdrift.Options{Title: "<Game name>", Look: stickdrift.Look{Layout: "dpad-ab"}})
-if err := host.Start(ctx); err != nil { return err }
+host.Start(ctx) // background; reconnects by itself
+defer host.Close()
+<-host.Ready() // room is online; host.Info().JoinURL is set
 ```
+
+Reference program: `examples/go-terminal` in the repository.
 
 **Anything else:** WebSocket to
 `wss://stickdrift.net/ws/host/<CODE>?key=<16-128 random chars>`,
@@ -75,7 +82,8 @@ them back to the constructor.
 
 ## Step 3: show the QR code
 
-When the room opens (`host.on("open", (code, joinUrl) => …)` in JS), draw
+When the room opens (`host.on("open", (code, joinUrl) => …)` in JS;
+`<-host.Ready()` then `host.Info().JoinURL` in Go), draw
 `joinUrl` as a QR code on the game's screen, large, with the five-letter
 code underneath in big type for people who'd rather type it at
 `stickdrift.net`. Use any QR library already in the project;
@@ -90,8 +98,8 @@ Call once per game update, before game logic:
 
 ```js
 for (const [n, p] of host.poll()) {
-  if (p.pressed & (1 << Button.A)) jump(n);   // latched: never misses a tap
-  if (down(p.held, "Left")) moveLeft(n);       // held
+  if (pressed(p, "A")) jump(n);     // latched: never misses a tap
+  if (held(p, "Left")) moveLeft(n); // held
   move(n, p.state.lx, p.state.ly);            // analog, -1..1
 }
 ```
@@ -99,13 +107,18 @@ for (const [n, p] of host.poll()) {
 ```go
 host.Tick()
 for _, pad := range host.Pads() {
-	if pad.JustPressed(stickdrift.A) { jump(pad.Number) }
-	if pad.Held(stickdrift.Left) { moveLeft(pad.Number) }
+	if pad.JustPressed(stickdrift.A) { jump(pad.Number()) }
+	if pad.Held(stickdrift.Left) { moveLeft(pad.Number()) }
+	x, y := pad.Stick() // analog, -1..1
+	move(pad.Number(), x, y)
 }
+for _, pad := range host.Joined() { /* new or returning phone: set its look */ }
+for _, pad := range host.Left() { /* gone: its buttons read released */ }
 ```
 
-Map seat numbers to players. On `join`, create or restore the player for
-that seat (`rejoin` is true when the same phone comes back). On `leave`,
+Map seat numbers to players. On `join` (JS) or `Joined()` (Go), create or
+restore the player for that seat (in JS `rejoin` is true when the same phone
+comes back; in Go it is the same `*Pad`). On `leave`,
 treat all of that pad's buttons as released; don't delete the player
 immediately, since phones come back after a lock screen.
 
@@ -120,8 +133,14 @@ On `join`, give each pad the colour and name it has on the big screen:
 host.setPad(n, { color: player.color, label: player.name, banner: player.team });
 ```
 
+```go
+host.SetPad(n, stickdrift.Look{Color: player.Color, Label: player.Name, Banner: player.Team})
+```
+
+`setPad` merges over the pad's current look, so send only what changes. To
+blank a text field from Go, use `Look{Clear: []string{"message"}}`.
 Optionally send `avatar`: a PNG data URL of the player's sprite, under
-12 KB. See https://stickdrift.net/docs/avatars.md
+12 KB (Go: `stickdrift.AvatarPNG(pngBytes)`). See https://stickdrift.net/docs/avatars.md
 
 ## Step 6: a look per phase
 
@@ -133,12 +152,12 @@ Send a different look when the game changes phase, for example:
 - **results:** a custom layout with AGAIN and QUIT tiles
 
 `host.setLook(look)` changes everyone; `host.setPad(n, look)` one phone.
-After a phase change, call `host.poll()` once and discard the result so
-presses from the old phase don't carry over. Recipes:
+After a phase change, call `host.poll()` (JS) or `host.Tick()` (Go) once and
+ignore the presses so ones from the old phase don't carry over. Recipes:
 https://stickdrift.net/docs/recipes.md
 
-Optional: `host.haptic(n, 40)` on hits (Android only; never the only
-signal). `host.setOpen(false)` when a round starts to stop new joiners.
+Optional: `host.haptic(n, 40)` / `host.Haptic(n, 40)` on hits (Android only; never the only
+signal). `setOpen(false)` / `SetOpen(false)` when a round starts to stop new joiners.
 
 ## Step 7: test
 
