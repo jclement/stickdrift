@@ -2,7 +2,7 @@
 node = "24.16.0"
 bun = "1.3.14"
 
-# controller runs on Cloudflare Workers: one Durable Object per room relays
+# StickDrift runs on Cloudflare Workers: one Durable Object per room relays
 # phones (pads) to a game (host). Vite builds the pages into dist/client.
 
 [tasks.setup]
@@ -35,7 +35,7 @@ description = "Everything that must pass before calling work done"
 depends = ["lint", "test"]
 
 [tasks.deploy]
-description = "Build and deploy to controller.onewheelgeek.net (stamps a build id so phones self-update)"
+description = "Build and deploy to stickdrift.net (stamps a build id so phones self-update)"
 run = """
 export BUILD="$(git rev-parse --short HEAD)-$(date +%s)"
 bunx vite build && bunx vite build -c vite.sdk.config.ts && cp PROTOCOL.md dist/client/protocol.md

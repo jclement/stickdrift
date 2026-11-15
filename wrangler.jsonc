@@ -1,11 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "controller",
+  "name": "stickdrift",
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-11-01",
-  // Served on a subdomain of the personal onewheelgeek.net zone; wrangler
+  // StickDrift (Straybits Corp) at the apex of stickdrift.net; wrangler
   // provisions the DNS record and certificate.
-  "routes": [{ "pattern": "controller.onewheelgeek.net", "custom_domain": true }],
+  "routes": [{ "pattern": "stickdrift.net", "custom_domain": true }],
   // Built by Vite into dist/client. The Worker runs first for the API, the
   // WebSocket endpoints and the page routes; everything else is a static file.
   "assets": {

@@ -1,19 +1,19 @@
-# Controller protocol, version 1
+# StickDrift protocol, version 1
 
 A **host** (the game) opens a room; **pads** (phones) join it. Everything goes
-through `wss://controller.onewheelgeek.net`, where each room is a Durable
+through `wss://stickdrift.net`, where each room is a Durable
 Object located near whoever opened it.
 
 ## Room codes
 
 Five letters from `ABCDEFGHJKLMNPQRSTUVWXYZ` (no I or O). The host picks one at
-random. Phones join at `https://controller.onewheelgeek.net/j/CODE`; put that
+random. Phones join at `https://stickdrift.net/j/CODE`; put that
 URL in a QR code.
 
 ## Host connection
 
 ```
-GET wss://controller.onewheelgeek.net/ws/host/CODE?key=SECRET
+GET wss://stickdrift.net/ws/host/CODE?key=SECRET
 ```
 
 `SECRET` is 16-128 characters the host makes up. The first host to connect
@@ -44,7 +44,7 @@ minutes after the host disconnects; an unhosted room is wiped after 6 hours.
 ## Pad connection
 
 ```
-GET wss://controller.onewheelgeek.net/ws/pad/CODE?device=DEVICEID
+GET wss://stickdrift.net/ws/pad/CODE?device=DEVICEID
 ```
 
 `DEVICEID` is 8-64 characters `[A-Za-z0-9_-]`, stable per phone, so a

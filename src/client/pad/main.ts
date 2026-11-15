@@ -32,10 +32,10 @@ const fullBtn = $("fullscreen") as HTMLButtonElement;
 
 /** deviceId is stable per phone so a reconnect keeps the same pad number. */
 function deviceId(): string {
-  let id = localStorage.getItem("controller.device");
+  let id = localStorage.getItem("stickdrift.device");
   if (!id) {
     id = crypto.randomUUID().replace(/-/g, "");
-    localStorage.setItem("controller.device", id);
+    localStorage.setItem("stickdrift.device", id);
   }
   return id;
 }
@@ -351,12 +351,12 @@ function isStandalone(): boolean {
 /** maybeShowIosHint suggests Add to Home Screen once, on iPhone Safari. */
 function maybeShowIosHint() {
   const iphone = /iPhone|iPod/.test(navigator.userAgent);
-  if (!iphone || isStandalone() || localStorage.getItem("controller.iosHint") === "done") return;
+  if (!iphone || isStandalone() || localStorage.getItem("stickdrift.iosHint") === "done") return;
   const hint = $("ios-hint");
   hint.classList.remove("hidden");
   $("ios-hint-close").addEventListener("click", () => {
     hint.classList.add("hidden");
-    localStorage.setItem("controller.iosHint", "done");
+    localStorage.setItem("stickdrift.iosHint", "done");
   });
 }
 
@@ -420,7 +420,7 @@ $("status-retry").addEventListener("click", () => location.assign("/j"));
 function showJoin(prefill = "") {
   joinScreen.classList.remove("hidden");
   // A home-screen launch lands here: offer the last room in one tap.
-  const last = localStorage.getItem("controller.lastCode");
+  const last = localStorage.getItem("stickdrift.lastCode");
   if (last && isCode(last)) {
     const btn = $("rejoin");
     btn.textContent = `REJOIN ${last}`;
@@ -532,8 +532,8 @@ function start() {
     return;
   }
   code = fromPath;
-  localStorage.setItem("controller.lastCode", code);
-  document.title = `Controller · ${code}`;
+  localStorage.setItem("stickdrift.lastCode", code);
+  document.title = `StickDrift · ${code}`;
   maybeShowIosHint();
   void keepAwake();
   connect();

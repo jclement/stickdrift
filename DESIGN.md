@@ -1,4 +1,7 @@
-# Controller design
+# StickDrift design
+
+StickDrift (stickdrift.net) is a Straybits Corp project: phones as game
+controllers for any game on a big screen.
 
 ## Shape
 
