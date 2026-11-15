@@ -707,3 +707,15 @@ body.buzz .surface { animation: buzz-shake var(--buzz-ms, 300ms) linear; }
 @media (prefers-reduced-motion: reduce) {
   body.buzz .surface { animation: none; }
 }
+.overlay .ghost-btn {
+  display: block;
+  margin: 16px auto 0;
+  padding: 10px 22px;
+  border-radius: 12px;
+  border: 1px solid var(--rim);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}

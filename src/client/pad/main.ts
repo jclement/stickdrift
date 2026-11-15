@@ -225,6 +225,9 @@ function showStatus(title: string, text: string, final = false) {
   $("status-text").textContent = text;
   $("status-dot").classList.toggle("hidden", final);
   $("status-retry").classList.toggle("hidden", !final);
+  // Waiting can go on forever (the game may never come back), so there is
+  // always a way out, which matters most in a home-screen app with no URL bar.
+  $("status-leave").classList.toggle("hidden", final);
 }
 
 function hideStatus() {
@@ -401,6 +404,10 @@ document.addEventListener("visibilitychange", () => {
 window.visualViewport?.addEventListener("resize", refitSoon);
 setInterval(refitIfNeeded, 400);
 
+$("status-leave").addEventListener("click", () => {
+  input.releaseAll();
+  location.assign("/j");
+});
 $("leave").addEventListener("click", () => {
   // Navigating away closes the socket; the game sees the seat leave. The
   // join screen then offers to rejoin this room or enter another code.
