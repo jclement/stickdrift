@@ -9,7 +9,8 @@ app, no accounts.
 **Docs: https://stickdrift.net/docs.** Using an AI coding agent? Point it at
 https://stickdrift.net/agents.md (and `/llms.txt`).
 
-Live at **https://stickdrift.net** (try `/demo`).
+Live at **https://stickdrift.net** (try `/demo`). See it in a real game:
+**https://kaboom.stickdrift.net** (KABOOM!, a couch bomb game on the Go library).
 
 ## Quick start
 
