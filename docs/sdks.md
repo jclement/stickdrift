@@ -211,7 +211,9 @@ For a full game on the Go library, play [KABOOM!](https://kaboom.stickdrift.net)
 a couch bomb game in Go (Ebitengine), running natively and as WebAssembly in the
 browser, with per-phase custom layouts, avatars and haptics. Or
 [SKIDMARK!](https://skidmark.stickdrift.net), an overhead racer that steers
-with a custom-layout analogue stick.
+with a custom-layout analogue stick, or
+[BRAINFART!](https://brainfart.stickdrift.net), a quiz show whose phones swap
+between answer tiles, true/false buttons and a lobby mode switch.
 
 ## Other languages
 
