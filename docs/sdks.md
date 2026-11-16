@@ -209,7 +209,9 @@ room, prints the QR code in the terminal and logs every phone's input.
 
 For a full game on the Go library, play [KABOOM!](https://kaboom.stickdrift.net):
 a couch bomb game in Go (Ebitengine), running natively and as WebAssembly in the
-browser, with per-phase custom layouts, avatars and haptics.
+browser, with per-phase custom layouts, avatars and haptics. Or
+[SKIDMARK!](https://skidmark.stickdrift.net), an overhead racer that steers
+with a custom-layout analogue stick.
 
 ## Other languages
 
