@@ -28,7 +28,7 @@ installDriftMode();
 
 /** The hero badge cycles through lines nobody asked for. */
 const BADGE = [
-  "FOUR GAMES · UP TO SIXTEEN PLAYERS · FREE",
+  "FIVE GAMES · UP TO SIXTEEN PLAYERS · FREE",
   "NOW WITH 40% MORE NARRATOR",
   "NO CONTROLLERS WERE PURCHASED",
   "DAVE HAS FOUND HIS CAMERA APP",

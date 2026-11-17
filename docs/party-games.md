@@ -1,7 +1,7 @@
 # Building party games
 
-The four games on [stickdrift.net](https://stickdrift.net) (KABOOM!, SKIDMARK!, BRAINFART!
-and SPACEJUNK!) were built by an AI coding agent (Claude) working with one person: KABOOM!
+The games on [stickdrift.net](https://stickdrift.net) (KABOOM!, SKIDMARK!, BRAINFART!,
+SPACEJUNK! and SNITCH!) were built by an AI coding agent (Claude) working with one person: KABOOM!
 first, then the others from a short brief plus a skill file distilled from it. This page
 describes the recipe, so you can do the same: what the pieces are, why each was chosen, and
 a prompt to start from.
@@ -74,7 +74,7 @@ Verify with CPU-only matches and screenshots you actually look at. Tell me what 
 checked and what still needs real phones.
 ```
 
-## Lessons from the four games
+## Lessons from the games
 
 - **The phone's private screen is the point.** The best ideas use something a gamepad
   can't do: secret roles, a gauge only one crew member can see, the half of a clue only you

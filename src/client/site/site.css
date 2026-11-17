@@ -217,3 +217,9 @@ pre { background: #0b0a12; border: 1px solid var(--color-line); border-radius: 1
 .badge-line { display: inline-block; transition: opacity .3s, transform .3s; }
 .badge-line.out { opacity: 0; transform: translateY(-6px); }
 @media (prefers-reduced-motion: reduce) { #drift-egg, .ticker-track { animation: none; } }
+
+/* The newest game gets a wide card: screenshot left, words right. */
+@media (min-width: 768px) {
+  .game-card.featured { grid-column: 1 / -1; flex-direction: row; }
+  .game-card.featured .game-shot { width: 55%; flex: none; border-bottom: 0; border-right: 1px solid var(--color-line); }
+}

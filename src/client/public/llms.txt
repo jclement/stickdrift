@@ -27,7 +27,7 @@ Relay: https://stickdrift.net. Browser SDK: `import { StickDriftHost, pressed, h
 ## Guides
 
 - [Recipes](https://stickdrift.net/docs/recipes.md): lobby/gameplay/spectator/results looks, player identity, 4-way grid games
-- [Building party games](https://stickdrift.net/docs/party-games.md): how the four stickdrift.net games were built, with a starter prompt
+- [Building party games](https://stickdrift.net/docs/party-games.md): how the stickdrift.net games were built, with a starter prompt
 - [Party-game skill](https://stickdrift.net/party-game-skill.md): an agent skill for building a same-screen party game (Go/wasm or JS, art and sound in code, optional voices, static hosting)
 - [FAQ](https://stickdrift.net/docs/faq.md): iPhone full screen, latency numbers, guest Wi-Fi
 
