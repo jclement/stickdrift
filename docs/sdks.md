@@ -213,7 +213,9 @@ browser, with per-phase custom layouts, avatars and haptics. Or
 [SKIDMARK!](https://skidmark.stickdrift.net), an overhead racer that steers
 with a custom-layout analogue stick, or
 [BRAINFART!](https://brainfart.stickdrift.net), a quiz show whose phones swap
-between answer tiles, true/false buttons and a lobby mode switch.
+between answer tiles, true/false buttons and a lobby mode switch, or
+[SPACEJUNK!](https://spacejunk.stickdrift.net), an Asteroids-style dogfight on
+four tiles (rotate, rotate, thrust, fire) that relabel themselves for ghosts.
 
 ## Other languages
 

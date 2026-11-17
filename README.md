@@ -11,8 +11,9 @@ https://stickdrift.net/agents.md (and `/llms.txt`).
 
 Live at **https://stickdrift.net** (try `/demo`). See it in a real game:
 **https://kaboom.stickdrift.net** (KABOOM!, a couch bomb game on the Go library) and
-**https://skidmark.stickdrift.net** (SKIDMARK!, an overhead party racer) and
-**https://brainfart.stickdrift.net** (BRAINFART!, a voiced party quiz show).
+**https://skidmark.stickdrift.net** (SKIDMARK!, an overhead party racer),
+**https://brainfart.stickdrift.net** (BRAINFART!, a voiced party quiz show) and
+**https://spacejunk.stickdrift.net** (SPACEJUNK!, a narrated gravity-well dogfight).
 
 ## Quick start
 
