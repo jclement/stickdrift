@@ -10,7 +10,7 @@ Relay: https://stickdrift.net. Browser SDK: `import { StickDriftHost, pressed, h
 - [Quickstart](https://stickdrift.net/docs/quickstart.md): a complete browser host in one HTML file, plus Go
 - [Concepts](https://stickdrift.net/docs/concepts.md): rooms, hosts, pads, looks, phases, P2P vs relay
 
-## StickDrifts
+## Controllers
 
 - [Layouts](https://stickdrift.net/docs/layouts.md): the ten built-in layouts, what each produces, preview URLs
 - [Custom layouts](https://stickdrift.net/docs/custom-layouts.md): every control type and field for `layout: "custom"`
@@ -27,6 +27,8 @@ Relay: https://stickdrift.net. Browser SDK: `import { StickDriftHost, pressed, h
 ## Guides
 
 - [Recipes](https://stickdrift.net/docs/recipes.md): lobby/gameplay/spectator/results looks, player identity, 4-way grid games
+- [Building party games](https://stickdrift.net/docs/party-games.md): how the four stickdrift.net games were built, with a starter prompt
+- [Party-game skill](https://stickdrift.net/party-game-skill.md): an agent skill for building a same-screen party game (Go/wasm or JS, art and sound in code, optional voices, static hosting)
 - [FAQ](https://stickdrift.net/docs/faq.md): iPhone full screen, latency numbers, guest Wi-Fi
 
 ## Tools

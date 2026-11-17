@@ -30,10 +30,12 @@ function docsPlugin(): Plugin {
     },
     buildStart() {
       for (const s of DOC_SECTIONS) this.addWatchFile(resolve(repo, s.file));
+      this.addWatchFile(resolve(repo, "docs/party-game-skill.md"));
     },
     generateBundle() {
       for (const s of DOC_SECTIONS) this.emitFile({ type: "asset", fileName: `docs/${s.slug}.md`, source: read(s.file) });
       this.emitFile({ type: "asset", fileName: "agents.md", source: read("docs/agents.md") });
+      this.emitFile({ type: "asset", fileName: "party-game-skill.md", source: read("docs/party-game-skill.md") });
     },
   };
 }

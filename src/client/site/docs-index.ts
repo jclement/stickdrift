@@ -30,5 +30,6 @@ export const DOC_SECTIONS: DocSection[] = [
   { slug: "sdks", title: "SDKs", file: "docs/sdks.md", blurb: "The JavaScript and Go host libraries.", group: "Reference" },
   { slug: "protocol", title: "Protocol", file: "PROTOCOL.md", blurb: "The wire protocol: WebSockets, JSON messages, 16-byte frames, WebRTC.", group: "Reference" },
   { slug: "recipes", title: "Recipes", file: "docs/recipes.md", blurb: "Game phases, player identity, 4-way grid games, quizzes.", group: "Guides" },
+  { slug: "party-games", title: "Building party games", file: "docs/party-games.md", blurb: "How the four games were built, a starter prompt, and an agent skill.", group: "Guides" },
   { slug: "faq", title: "FAQ", file: "docs/faq.md", blurb: "iPhone full screen, latency, guest Wi-Fi, privacy.", group: "Guides" },
 ];
