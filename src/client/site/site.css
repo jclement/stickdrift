@@ -190,3 +190,30 @@ pre { background: #0b0a12; border: 1px solid var(--color-line); border-radius: 1
   font-family: var(--font-display); font-size: .7rem; letter-spacing: .1em; color: var(--color-muted);
   border: 1px solid var(--color-line); border-radius: 999px; padding: .15rem .6rem;
 }
+
+/* ---- Drift mode (the easter egg, drift.ts) ---- */
+.drift-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 40; mix-blend-mode: screen; }
+.drift-panel {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 50; width: 15rem; padding: 1rem; text-align: center;
+  background: rgb(17 15 26 / 0.92); border: 1px solid rgb(255 77 109 / 0.5); border-radius: 18px;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.5), 0 0 40px rgb(255 77 109 / 0.25); animation: drift-in .4s cubic-bezier(.2, 1.4, .4, 1);
+}
+.drift-panel .drift-kicker { font-family: var(--font-display); font-size: .7rem; letter-spacing: .3em; color: var(--color-zap); }
+.drift-panel .drift-qr { margin: .6rem auto; width: 9rem; height: 9rem; background: white; border-radius: 10px; padding: .3rem; color: #333; display: grid; place-items: center; font-size: .75rem; }
+.drift-panel .drift-code { font-family: var(--font-display); font-weight: 700; font-size: 1.8rem; letter-spacing: .25em; color: white; }
+.drift-panel .drift-hint { font-size: .75rem; color: var(--color-muted); margin-top: .3rem; }
+.drift-close { position: absolute; top: .3rem; right: .6rem; font-size: 1.3rem; color: var(--color-muted); }
+.drift-close:hover { color: white; }
+.drift-shoved { transition: transform .45s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes drift-in { from { transform: translateY(30px) scale(.9); opacity: 0; } }
+
+/* The footer joystick: the only visible hint that drift mode exists. */
+#drift-egg { display: inline-block; cursor: pointer; animation: egg-wobble 3.2s ease-in-out infinite; transform-origin: 50% 90%; }
+#drift-egg:hover { animation-duration: .4s; color: var(--color-hot); }
+@keyframes egg-wobble { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+
+/* ---- Small whimsy ---- */
+.game-card { transform-style: preserve-3d; will-change: transform; }
+.badge-line { display: inline-block; transition: opacity .3s, transform .3s; }
+.badge-line.out { opacity: 0; transform: translateY(-6px); }
+@media (prefers-reduced-motion: reduce) { #drift-egg, .ticker-track { animation: none; } }

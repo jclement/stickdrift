@@ -2,6 +2,7 @@
 // custom-layout example.
 import "./site.css";
 import { LAYOUTS, type CustomLayout } from "../../shared/protocol";
+import { installDriftMode } from "./drift";
 import { showVersion } from "./version";
 
 /** The homepage's own one-liners per layout. The plain descriptions in
@@ -75,3 +76,4 @@ pre.addEventListener("input", () => {
 updateCustom();
 
 showVersion();
+installDriftMode();
