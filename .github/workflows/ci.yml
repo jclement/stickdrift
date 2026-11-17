@@ -12,3 +12,21 @@ jobs:
       - run: mise run setup
       - run: mise run build
       - run: mise run check
+
+  # Deploys main to stickdrift.net once the check passes. Needs the secret
+  # CLOUDFLARE_API_TOKEN and the variable CLOUDFLARE_ACCOUNT_ID.
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-stickdrift
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: mise run setup
+      - run: mise run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
