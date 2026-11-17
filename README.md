@@ -16,7 +16,7 @@ Live at **https://stickdrift.net** (try `/demo`). See it in a real game:
 **https://spacejunk.stickdrift.net** (SPACEJUNK!, a narrated gravity-well dogfight),
 **https://snitch.stickdrift.net** (SNITCH!, a heist with a secret traitor),
 **https://dontpressit.stickdrift.net** (DON'T PRESS IT!, one giant button and a smug host) and
-**https://allin.stickdrift.net** (ALL IN!, strictly-PG cartoon strip poker).
+**https://allin.stickdrift.net** (ALL IN!, cheeky cartoon strip poker).
 
 ## Quick start
 
