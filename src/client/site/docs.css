@@ -114,3 +114,10 @@ li.open > .doc-sub { display: block; }
 .doc-pager a:hover { border-color: var(--color-hot); background: rgb(255 77 109 / 0.06); }
 .doc-pager a.next { text-align: right; }
 .doc-pager small { font-size: .65rem; letter-spacing: .3em; color: var(--color-muted); }
+
+/* The sidebar scrolls on short windows; keep its scrollbar dark and thin
+   instead of the bright system default between the nav and the page. */
+.doc-nav { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.14) transparent; }
+.doc-nav::-webkit-scrollbar { width: 6px; }
+.doc-nav::-webkit-scrollbar-track { background: transparent; }
+.doc-nav::-webkit-scrollbar-thumb { background: rgb(255 255 255 / 0.14); border-radius: 3px; }
