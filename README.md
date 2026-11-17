@@ -13,8 +13,10 @@ Live at **https://stickdrift.net** (try `/demo`). See it in a real game:
 **https://kaboom.stickdrift.net** (KABOOM!, a couch bomb game on the Go library) and
 **https://skidmark.stickdrift.net** (SKIDMARK!, an overhead party racer),
 **https://brainfart.stickdrift.net** (BRAINFART!, a voiced party quiz show),
-**https://spacejunk.stickdrift.net** (SPACEJUNK!, a narrated gravity-well dogfight) and
-**https://snitch.stickdrift.net** (SNITCH!, a heist with a secret traitor).
+**https://spacejunk.stickdrift.net** (SPACEJUNK!, a narrated gravity-well dogfight),
+**https://snitch.stickdrift.net** (SNITCH!, a heist with a secret traitor),
+**https://dontpressit.stickdrift.net** (DON'T PRESS IT!, one giant button and a smug host) and
+**https://allin.stickdrift.net** (ALL IN!, strictly-PG cartoon strip poker).
 
 ## Quick start
 
