@@ -170,3 +170,23 @@ pre { background: #0b0a12; border: 1px solid var(--color-line); border-radius: 1
 @media (prefers-reduced-motion: reduce) {
   .drift-word, .brand-mark .drifty, .ticker-track, .stick-knob.wobbly, .launch-badge .dot { animation: none; }
 }
+
+/* ---- Top-level tabs: Games (the homepage) and Build your own ---- */
+.site-tabs { display: flex; gap: .25rem; min-width: 0; overflow-x: auto; font-size: .875rem; }
+.site-tabs a {
+  padding: .35rem .75rem; border-radius: 10px; color: var(--color-muted); white-space: nowrap;
+  font-family: var(--font-display); font-weight: 600; letter-spacing: .04em;
+}
+.site-tabs a:hover { color: white; background: rgb(255 255 255 / 0.05); }
+.site-tabs a[aria-current="page"] { color: white; background: rgb(255 77 109 / 0.16); box-shadow: inset 0 0 0 1px rgb(255 77 109 / 0.4); }
+
+/* ---- Game cards on the homepage ---- */
+.game-card { display: flex; flex-direction: column; overflow: hidden; transition: transform .15s, border-color .15s; }
+.game-card:hover { transform: translateY(-3px); border-color: rgb(255 255 255 / 0.25); }
+.game-shot { aspect-ratio: 16 / 9; width: 100%; object-fit: cover; image-rendering: pixelated; border-bottom: 1px solid var(--color-line); }
+.game-title { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; letter-spacing: .04em; color: white; line-height: 1; }
+.game-tags { display: flex; flex-wrap: wrap; gap: .4rem; }
+.game-tags span {
+  font-family: var(--font-display); font-size: .7rem; letter-spacing: .1em; color: var(--color-muted);
+  border: 1px solid var(--color-line); border-radius: 999px; padding: .15rem .6rem;
+}

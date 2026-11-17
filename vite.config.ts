@@ -1,5 +1,5 @@
-// Builds the pages (home, phone controller, demo host, docs, layout
-// designer) into dist/client, which wrangler serves through the assets
+// Builds the pages (games home, build-your-own, phone controller, demo
+// host, docs, layout designer) into dist/client, which wrangler serves through the assets
 // binding. Static assets are served with Cloudflare's default HTML
 // handling, so docs.html answers at /docs and designer.html at /designer.
 //
@@ -53,6 +53,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(repo, "src/client/index.html"),
+        build: resolve(repo, "src/client/build.html"),
         pad: resolve(repo, "src/client/pad.html"),
         demo: resolve(repo, "src/client/demo.html"),
         docs: resolve(repo, "src/client/docs.html"),

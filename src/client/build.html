@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Build your own party game: StickDrift turns every phone in the room into a game controller. No app, no accounts, no pairing, no drift." />
+    <meta name="theme-color" content="#07060b" />
+    <meta property="og:title" content="StickDrift: your friends already own a controller" />
+    <meta property="og:description" content="It's their phone. Scan a code, it becomes a gamepad. No app, no accounts, no drift." />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <title>Build your own · StickDrift</title>
+  </head>
+  <body class="grid-bg min-h-screen">
+    <header class="h-12 flex items-center gap-4 px-4 md:px-8 border-b border-line bg-ink/70 backdrop-blur sticky top-0 z-20">
+      <a href="/" class="brand-mark font-display font-bold tracking-[0.3em] text-white">STICK<span class="drifty">DRIFT</span></a>
+      <nav class="site-tabs">
+        <a href="/">Games</a>
+        <a href="/build" aria-current="page">Build your own</a>
+        <a href="/docs" class="hidden sm:inline">Docs</a>
+        <a href="/designer" class="hidden md:inline">Designer</a>
+        <a href="/agents.md" class="hidden md:inline text-zap">For agents</a>
+      </nav>
+      <span class="flex-1"></span>
+      <a href="/demo" class="text-sm font-display font-semibold text-hot whitespace-nowrap">DEMO →</a>
+    </header>
+
+    <main>
+      <!-- Hero -->
+      <section class="hero max-w-6xl mx-auto px-4 md:px-8 pt-12 md:pt-20 pb-14 grid grid-cols-1 gap-12 lg:grid-cols-[1.15fr_1fr] items-center">
+        <div>
+          <p class="launch-badge"><span class="dot"></span> NOW SHIPPING · ZERO-DRIFT TECHNOLOGY<sup>*</sup></p>
+          <h1 class="font-display font-bold text-5xl md:text-7xl leading-[0.95] text-white mt-6">
+            Your friends already own a <span class="glow-text drift-word">controller.</span>
+          </h1>
+          <p class="mt-6 text-lg md:text-xl max-w-xl">
+            It's their phone. They weren't going to put it down anyway. StickDrift turns it into a gamepad for your game: scan a
+            code, done. No app. No accounts. No pairing ritual. No one hunting for AA batteries.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href="/demo" class="btn-hot">OPEN A DEMO ROOM</a>
+            <a href="/docs#quickstart" class="btn-ghost">PUT IT IN MY GAME</a>
+          </div>
+          <p class="mt-4 text-xs text-muted"><sup>*</sup> It's a touchscreen. There's nothing in it to wear out. We're still calling it technology.</p>
+        </div>
+        <div class="flex justify-center">
+          <div class="hero-stage w-full max-w-[560px]">
+            <div class="phone w-full aspect-[19.5/9] -rotate-3">
+              <iframe id="hero-pad" title="A live controller preview" src="/j?preview=gamepad&color=%23ff4d6d"></iframe>
+            </div>
+            <p class="hero-caption">↑ That's live. Press it. It's the actual controller page, minus the friends.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ticker -->
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track">
+          <span>NO APP</span><span>NO ACCOUNTS</span><span>NO PAIRING</span><span>NO DRIFT</span><span>NO BATTERIES (WELL, THEIRS)</span><span>NO "CAN YOU PASS ME PLAYER TWO"</span><span>16 BYTES PER PRESS</span><span>~1 MS ON YOUR WI-FI</span>
+          <span>NO APP</span><span>NO ACCOUNTS</span><span>NO PAIRING</span><span>NO DRIFT</span><span>NO BATTERIES (WELL, THEIRS)</span><span>NO "CAN YOU PASS ME PLAYER TWO"</span><span>16 BYTES PER PRESS</span><span>~1 MS ON YOUR WI-FI</span>
+        </div>
+      </div>
+
+      <!-- Numbers -->
+      <section class="max-w-6xl mx-auto px-4 md:px-8 py-14">
+        <div class="stats">
+          <div class="stat"><b>~1<small>ms</small></b><span>phone to game, peer-to-peer on the same Wi-Fi</span></div>
+          <div class="stat"><b>55-65<small>ms</small></b><span>through Cloudflare when the network won't let devices talk</span></div>
+          <div class="stat"><b>0</b><span>apps to install, accounts to make, or Bluetooth menus to apologise for</span></div>
+          <div class="stat"><b>16<small>bytes</small></b><span>per input frame: every button, both sticks, sent only on change</span></div>
+        </div>
+      </section>
+
+      <!-- How it works -->
+      <section id="how" class="max-w-6xl mx-auto px-4 md:px-8 py-14">
+        <p class="eyebrow">HOW IT WORKS</p>
+        <h2 class="section-title">Three steps. One of them is "play".</h2>
+        <div class="grid gap-4 md:grid-cols-3 mt-8">
+          <div class="card step p-6">
+            <p class="step-n text-hot">1</p>
+            <h3 class="font-display text-xl text-white mt-2">Your game opens a room</h3>
+            <p class="mt-2 text-sm">A few lines with the SDK. It puts a QR code and a five-letter code on the big screen. No I or O in the code, because someone always types a zero.</p>
+          </div>
+          <div class="card step p-6">
+            <p class="step-n text-zap">2</p>
+            <h3 class="font-display text-xl text-white mt-2">Everyone scans it</h3>
+            <p class="mt-2 text-sm">Their phone opens a controller in the browser, in their player colour, with the layout your game asked for. The slowest part is waiting for Dave to find his camera app.</p>
+          </div>
+          <div class="card step p-6">
+            <p class="step-n text-go">3</p>
+            <h3 class="font-display text-xl text-white mt-2">Mash buttons</h3>
+            <p class="mt-2 text-sm">Every press is a 16-byte snapshot sent straight to the game. Holds, rolls, sticks, taps shorter than a frame: nothing lost, nothing stuck.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Real games -->
+      <section id="games" class="max-w-6xl mx-auto px-4 md:px-8 py-14">
+        <a href="/" class="card p-6 grid gap-6 md:grid-cols-[1fr_auto] items-center hover:border-hot">
+          <div>
+            <p class="eyebrow">SEE IT IN REAL GAMES</p>
+            <h2 class="section-title">Four party games already run on it.</h2>
+            <p class="mt-2 text-sm">KABOOM!, SKIDMARK!, BRAINFART! and SPACEJUNK! are each written in Go on the StickDrift library, compiled to WebAssembly, and
+              playable right now in a browser. Every controller you'd need is in there somewhere: d-pads, sticks, answer tiles, four-button flight
+              controls that change when you die.</p>
+          </div>
+          <span class="btn-hot whitespace-nowrap">PLAY THEM →</span>
+        </a>
+      </section>
+
+      <!-- About the name -->
+      <section id="drift" class="max-w-6xl mx-auto px-4 md:px-8 py-14 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_1fr] items-center">
+        <div>
+          <p class="eyebrow">ABOUT THE NAME</p>
+          <h2 class="section-title">Named after the one thing it can't do.</h2>
+          <p class="mt-4">
+            Real analogue sticks wear out. One day your character starts strolling left into the lava on their own, and you're told it's
+            "within spec". That's stick drift.
+          </p>
+          <p class="mt-3">
+            Phones don't have that problem: there's no potentiometer in there to wear out. Let go of a StickDrift stick and it reads zero.
+            Every frame carries the whole state, so a dropped packet or a locked screen can't leave a button held either. The drift is in the
+            name so it stays out of your game.
+          </p>
+        </div>
+        <div class="drift-demo" aria-hidden="true">
+          <figure>
+            <div class="stick-well"><div class="stick-knob wobbly"></div></div>
+            <figcaption><b>Your old controller</b><code class="drift-read">lx 0.13 · ly -0.04</code><span>Nobody is touching it.</span></figcaption>
+          </figure>
+          <figure>
+            <div class="stick-well good"><div class="stick-knob"></div></div>
+            <figcaption><b>StickDrift</b><code>lx 0.00 · ly 0.00</code><span>Also nobody touching it. See the difference?</span></figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Layout gallery -->
+      <section id="layouts" class="max-w-6xl mx-auto px-4 md:px-8 py-14">
+        <p class="eyebrow">THE LINE-UP</p>
+        <h2 class="section-title">Ten controllers. Zero firmware updates.</h2>
+        <p class="mt-2 text-muted">These are live. Go on, press them. Nobody's watching. (Unless your game is.)</p>
+        <div id="gallery" class="mt-8 grid gap-6 md:grid-cols-2"></div>
+      </section>
+
+      <!-- Custom -->
+      <section id="custom" class="max-w-6xl mx-auto px-4 md:px-8 py-14 grid grid-cols-1 gap-8 lg:grid-cols-2 items-start">
+        <div>
+          <p class="eyebrow">BRING YOUR OWN BUTTONS</p>
+          <h2 class="section-title">None of those? Describe your own.</h2>
+          <p class="mt-3">
+            Set the layout to <code>custom</code> and send a list of controls: buttons, tiles, pills, shoulders, buzzers, d-pads,
+            sticks, sliders and touchpads, each placed as a fraction of the screen with its own label and colour. The phone builds it
+            on the spot. Change it mid-game and every phone follows, which is either a feature or a prank, depending on you.
+          </p>
+          <pre id="custom-json"></pre>
+          <p class="text-xs text-muted">Edit the JSON; the preview updates. Links work too: <code>/j?preview=custom#layout=…</code></p>
+          <a href="/designer" class="btn-ghost mt-4">OR DRAG THINGS AROUND IN THE DESIGNER →</a>
+        </div>
+        <div class="phone w-full aspect-[19.5/9]"><iframe id="custom-pad" title="Custom layout preview"></iframe></div>
+      </section>
+
+      <!-- Latency -->
+      <section id="fast" class="max-w-6xl mx-auto px-4 md:px-8 py-14">
+        <p class="eyebrow">LATENCY</p>
+        <h2 class="section-title">Fast enough that you'll need a new excuse.</h2>
+        <p class="mt-3 max-w-2xl">
+          Input goes straight from the phone to your game over WebRTC when they share a network. When they can't (guest Wi-Fi, hotel
+          Wi-Fi, any network run by a cautious IT department), it rides the Cloudflare relay instead. It switches by itself. The phone's
+          corner badge tells you which: <code>P2P · 1 ms</code> or <code>RELAY · 58 ms</code>.
+        </p>
+        <div class="bars mt-8">
+          <div class="bar"><span class="bar-label">Peer-to-peer, same Wi-Fi</span><span class="bar-fill" style="--w: 0.6%; --c: var(--color-go)"></span><b>~1 ms</b></div>
+          <div class="bar"><span class="bar-label">Cloudflare relay (measured from Alberta)</span><span class="bar-fill" style="--w: 25%; --c: var(--color-cool)"></span><b>55-65 ms</b></div>
+          <div class="bar"><span class="bar-label">Your friend noticing it's their turn</span><span class="bar-fill" style="--w: 100%; --c: var(--color-hot)"></span><b>several business days</b></div>
+        </div>
+      </section>
+
+      <!-- Objections -->
+      <section id="objections" class="max-w-6xl mx-auto px-4 md:px-8 py-14">
+        <p class="eyebrow">ANTICIPATED COMPLAINTS</p>
+        <h2 class="section-title">Yes, but…</h2>
+        <div class="grid gap-4 md:grid-cols-2 mt-8">
+          <div class="card p-6">
+            <h3 class="font-display text-lg text-white">"It won't go full screen on my iPhone."</h3>
+            <p class="mt-2 text-sm">Apple doesn't let web pages do that. It does let you <b>Add to Home Screen</b>, and launched from there it's full screen and offers to rejoin your last room in one tap. The controller suggests it once, politely, and then drops it.</p>
+          </div>
+          <div class="card p-6">
+            <h3 class="font-display text-lg text-white">"Do they have to install something?"</h3>
+            <p class="mt-2 text-sm">No. It's a web page. If they can open a link, they can play. If they can't open a link, you have bigger problems than input latency.</p>
+          </div>
+          <div class="card p-6">
+            <h3 class="font-display text-lg text-white">"We're on the conference Wi-Fi."</h3>
+            <p class="mt-2 text-sm">Some networks won't let devices talk to each other, so direct connections can't happen. StickDrift falls back to the relay (55-65 ms) and carries on. Still faster than the conference coffee queue.</p>
+          </div>
+          <div class="card p-6">
+            <h3 class="font-display text-lg text-white">"What if someone's phone locks?"</h3>
+            <p class="mt-2 text-sm">Everything they were holding is released, and when they come back they get the same seat. No ghost player running into a wall forever.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Developers -->
+      <section id="dev" class="max-w-6xl mx-auto px-4 md:px-8 py-14">
+        <div class="flex flex-wrap items-end gap-4">
+          <div class="flex-1">
+            <p class="eyebrow">FOR GAME DEVELOPERS</p>
+            <h2 class="section-title">The integration is shorter than this page.</h2>
+          </div>
+          <a href="/docs" class="btn-hot">READ THE DOCS</a>
+        </div>
+        <a href="/agents.md" class="agent-box mt-6 max-w-3xl">
+          <span class="agent-icon" aria-hidden="true">✦</span>
+          <span><strong>Using an AI agent?</strong> Of course you are. Tell it to read <code>stickdrift.net/agents.md</code>:
+            step-by-step instructions to add phone controllers to your game, with a check after every step so it can't just
+            claim it worked. Everything else is indexed in <code>/llms.txt</code>.</span>
+        </a>
+        <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div>
+            <h3 class="font-display text-xl text-white mb-2">In the browser</h3>
+            <pre>import { StickDriftHost, pressed } from "https://stickdrift.net/sdk.js";
+
+const host = new StickDriftHost({
+  title: "My Game",
+  look: { layout: "dpad-ab", labels: { A: "JUMP", B: "FIRE" } },
+});
+host.on("open", (code, url) =&gt; showQr(url));
+host.on("join", (pad) =&gt; host.setPad(pad.pad, { color: "#3a86ff", label: "P" + (pad.pad + 1) }));
+
+function frame() {
+  for (const [n, p] of host.poll()) {
+    if (pressed(p, "A")) jump(n);     // latched: never misses a tap
+    move(n, p.state.lx, p.state.ly); // analog, -1..1
+  }
+  requestAnimationFrame(frame);
+}</pre>
+          </div>
+          <div>
+            <h3 class="font-display text-xl text-white mb-2">Anything with a WebSocket</h3>
+            <pre>connect  wss://stickdrift.net/ws/host/ABCDE?key=&lt;your secret&gt;
+send     {"t":"config","title":"My Game","look":{"layout":"stick-ab"}}
+receive  {"t":"welcome","code":"ABCDE","joinUrl":"https://…/j/ABCDE"}
+receive  {"t":"join","pad":0,"device":"…"}
+receive  &lt;16 bytes&gt; kind u8 · pad u8 · seq u16 · buttons u32
+                 lx ly rx ry i8 · px py i16   (little endian)
+send     {"t":"haptic","pad":0,"ms":40}</pre>
+            <p class="mt-3 text-sm">
+              Buttons: Up 0, Down 1, Left 2, Right 3, A 4, B 5, X 6, Y 7, L 8, R 9, Start 10, Select 11.
+              Sticks also set the d-pad bits, so a d-pad game works with any layout. Full spec: <a class="text-hot" href="/docs#protocol">the protocol</a>. Go:
+              <a class="text-hot" href="/docs#sdks">github.com/jclement/stickdrift/go</a>.
+            </p>
+          </div>
+        </div>
+        <div class="mt-10 grid gap-4 md:grid-cols-3">
+          <div class="card p-5"><h4 class="font-display text-white">Built for latency</h4><p class="text-sm mt-1">Frames leave the phone inside the touch handler, not queued for the next paint. Binary, 16 bytes, only when something changes.</p></div>
+          <div class="card p-5"><h4 class="font-display text-white">Lives next to your game</h4><p class="text-sm mt-1">Each room is a Durable Object in the Cloudflare location nearest whoever opened it, which is the big screen.</p></div>
+          <div class="card p-5"><h4 class="font-display text-white">Nothing gets stuck</h4><p class="text-sm mt-1">Every frame is a complete snapshot. Phones release everything when they lock or drop, and rejoin the same seat.</p></div>
+        </div>
+      </section>
+
+      <!-- Final call -->
+      <section class="max-w-6xl mx-auto px-4 md:px-8 py-20">
+        <div class="final-cta">
+          <h2 class="font-display font-bold text-4xl md:text-6xl text-white leading-[0.95]">Everyone's phone is already out.</h2>
+          <p class="mt-4 text-lg">You might as well make it useful.</p>
+          <div class="mt-8 flex flex-wrap justify-center gap-3">
+            <a href="/demo" class="btn-hot">OPEN A DEMO ROOM</a>
+            <a href="/docs#quickstart" class="btn-ghost">FIVE-MINUTE QUICKSTART</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-line py-8 text-center text-xs text-muted">
+      <p>(C) 2026 Straybits Corp · <span id="version">v…</span> · <a href="/docs" class="hover:text-white">Docs</a> ·
+        <a href="/designer" class="hover:text-white">Designer</a> · <a href="/demo" class="hover:text-white">Demo</a> ·
+        <a href="https://kaboom.stickdrift.net" class="hover:text-white">KABOOM!</a> ·
+        <a href="https://skidmark.stickdrift.net" class="hover:text-white">SKIDMARK!</a> ·
+        <a href="https://brainfart.stickdrift.net" class="hover:text-white">BRAINFART!</a> ·
+        <a href="https://spacejunk.stickdrift.net" class="hover:text-white">SPACEJUNK!</a> ·
+        <a href="/llms.txt" class="hover:text-white">llms.txt</a></p>
+      <p class="mt-2">No analogue sticks were harmed in the making of this product. Several were retired.</p>
+    </footer>
+    <script type="module" src="./site/build.ts"></script>
+  </body>
+</html>
