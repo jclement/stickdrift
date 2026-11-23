@@ -773,11 +773,8 @@ body.screen-mode .screen-page > * { width: 100%; max-width: 560px; margin: 0 aut
   transition: transform 0.08s, box-shadow 0.12s, border-color 0.12s;
 }
 .scr-card:active:not(:disabled) { transform: scale(0.97); }
-.scr-card.picked, .scr-choice.picked {
-  border-color: var(--accent);
-  background: rgb(var(--accent-rgb) / 0.22);
-  box-shadow: 0 0 0 2px var(--accent), 0 0 24px rgb(var(--accent-rgb) / 0.45);
-}
+/* Picked cards and options are styled at the end of this file, after the
+   themes, so no theme can hide a pick. */
 .scr-order {
   position: absolute;
   top: -8px;
@@ -791,6 +788,8 @@ body.screen-mode .screen-page > * { width: 100%; max-width: 560px; margin: 0 aut
   color: white;
   font-size: 14px;
   font-weight: 700;
+  /* A white ring keeps the number readable on an accent-filled card. */
+  box-shadow: 0 0 0 2px #fff, 0 2px 6px rgb(0 0 0 / 0.4);
 }
 
 /* Choices: a list of full-width rows, with a player's colour or avatar. */
@@ -834,6 +833,9 @@ body.screen-mode .screen-page > * { width: 100%; max-width: 560px; margin: 0 aut
   transition: transform 0.06s, box-shadow 0.06s, opacity 0.12s;
 }
 .scr-button { margin-top: 0; }
+/* .screen-page button sets color: inherit (0,1,1), which beat the white
+   above and left candy's dark text on accent-filled buttons. */
+.screen-page .scr-submit, .screen-page .scr-button { color: #fff; }
 .scr-submit:active:not(:disabled), .scr-button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 color-mix(in oklab, var(--c) 55%, black); }
 .scr-submit:disabled, .scr-button:disabled { opacity: 0.35; box-shadow: none; }
 .scr-button.sent:disabled { opacity: 0.6; }
@@ -918,3 +920,39 @@ body.style-retro .scr-submit, body.style-retro .scr-button { border-radius: 0; b
 body.style-candy .scr-card, body.style-candy .scr-choice { background: #fff; border: 0; box-shadow: 0 4px 0 #ffc2dc; }
 body.style-candy .scr-field { background: #fff; color: var(--text); }
 body.style-candy .scr-step { background: #ffd6e8; }
+
+/* Picked cards and options, in every theme. The theme rules above restyle
+   .scr-card and .scr-choice as body.style-* .scr-card (specificity 0,2,1),
+   which outranks a plain .scr-card.picked (0,2,0) and made picks invisible
+   in neon, flat, retro and candy. These come last and are at least as
+   specific as any of them (body ... 0,2,1; body.style-* ... 0,3,1).
+   test/client/pad-css.test.ts fails if a theme rule outranks them again. */
+body .scr-card.picked, body .scr-choice.picked {
+  border-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.22);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 24px rgb(var(--accent-rgb) / 0.45);
+}
+body.style-neon .scr-card.picked, body.style-neon .scr-choice.picked {
+  border-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.3);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 26px var(--accent);
+}
+body.style-flat .scr-card.picked, body.style-flat .scr-choice.picked {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+body.style-retro .scr-card.picked, body.style-retro .scr-choice.picked {
+  border: 3px solid #000;
+  background: var(--accent);
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+  box-shadow: 4px 4px 0 #000;
+}
+body.style-candy .scr-card.picked, body.style-candy .scr-choice.picked {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 0 color-mix(in oklab, var(--accent) 60%, black);
+}
