@@ -61,6 +61,23 @@ describe("Transport", () => {
     expect(pc.closed).toBe(false);
   });
 
+  it("sends a screen answer by both paths, and holds it while the relay reconnects", async () => {
+    const { t, ws, dc } = await start();
+    const ev = { t: "event" as const, n: 1, screen: "r1", element: "ready" };
+    t.sendEvent(ev);
+    expect(dc.sent).toContainEqual(JSON.stringify(ev));
+    expect(ws.messages("event")).toEqual([ev]);
+    dc.closeNow();
+    ws.drop();
+    t.sendEvent({ ...ev, n: 2 });
+    await settle(300);
+    const again = FakeSocket.latest();
+    expect(again).not.toBe(ws);
+    again.open();
+    expect(again.messages("event")).toEqual([{ ...ev, n: 2 }]);
+    expect(t.debug.events).toBe(2);
+  });
+
   it("uses the relay while the channel is still connecting", async () => {
     const { t, ws } = await start({ open: false });
     t.sendFrame(frame(1));

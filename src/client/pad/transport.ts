@@ -22,7 +22,7 @@
 // still arrives). If the quiet lasts, or ICE fails, or the network changes,
 // we negotiate a fresh connection (the host replaces the old one), retrying
 // with backoff until one sticks.
-import { FRAME_PING, ICE_SERVERS, PING, PONG, type Signal, type ToPadMessage } from "../../shared/protocol";
+import { FRAME_PING, ICE_SERVERS, PING, PONG, type ScreenEvent, type Signal, type ToPadMessage } from "../../shared/protocol";
 
 /** Which path input is currently taking. */
 export type Path = "p2p" | "relay" | "none";
@@ -58,6 +58,7 @@ export interface Debug {
   relayRtt: Stats;
   p2pRtt: Stats;
   framesSent: number;
+  events: number; // screen answers sent
   framesP2P: number;
   framesRelay: number;
   repeats: number;
@@ -68,6 +69,7 @@ export interface Debug {
 }
 
 const REPEAT_DELAYS = [25, 80]; // ms after a change to resend over P2P
+const MAX_PENDING_EVENTS = 8; // screen answers kept while the relay reconnects
 const TICK_MS = 250; // keepalive, P2P ping and liveness check period
 const RELAY_PING_MS = 1000; // relay round-trip sampling period
 const STALE_MS = 1000; // no echo for this long: stop trusting the channel
@@ -81,13 +83,14 @@ const HOST_BACK_CHECK_MS = 1500; // after the game reconnects, verify the channe
 export class Transport {
   debug: Debug = {
     path: "none", wsState: "closed", iceState: "new", dcState: "none", candidate: "",
-    relayRtt: new Stats(), p2pRtt: new Stats(), framesSent: 0, framesP2P: 0, framesRelay: 0,
+    relayRtt: new Stats(), p2pRtt: new Stats(), framesSent: 0, events: 0, framesP2P: 0, framesRelay: 0,
     repeats: 0, reconnects: 0, p2pAttempts: 0, p2pFallbacks: 0, hostP2P: false,
   };
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
   private last: ArrayBuffer | null = null;
+  private pendingEvents: string[] = []; // screen answers waiting for the relay
   private repeatTimers: ReturnType<typeof setTimeout>[] = [];
   private backoff = 250;
   private pingAt = 0;
@@ -125,6 +128,7 @@ export class Transport {
       this.debug.wsState = "open";
       this.changed();
       if (this.last) this.sendFrame(this.last);
+      for (const text of this.pendingEvents.splice(0)) ws.send(text);
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") return;
@@ -196,6 +200,30 @@ export class Transport {
       this.debug.framesRelay++;
       this.setPath("relay");
     }
+  }
+
+  /** sendEvent sends a screen answer. Unlike frames, an answer is said
+   *  once and never repeated, and the data channel is unreliable
+   *  (maxRetransmits 0), so it goes by both paths: the channel for speed
+   *  when it is open, the relay always. The host keeps the first copy (the
+   *  event counter n tells them apart). Answers given while the relay is
+   *  reconnecting wait for it, a few at most. */
+  sendEvent(m: ScreenEvent) {
+    const text = JSON.stringify(m);
+    this.debug.events++;
+    let direct = false;
+    if (this.dcOpen()) {
+      try {
+        this.dc!.send(text);
+        direct = true;
+      } catch {
+        // Closing under us; the relay copy still goes.
+      }
+    }
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(text);
+    // Queue only what the channel didn't carry: after a reconnect the host
+    // resets its de-duplication, so a late relay copy would count twice.
+    else if (!direct) this.pendingEvents = [...this.pendingEvents, text].slice(-MAX_PENDING_EVENTS);
   }
 
   /** sendJSON sends a control message over the relay. */

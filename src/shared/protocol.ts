@@ -493,11 +493,11 @@ export function cleanScreen(raw: unknown, allowAvatars = false): Screen | null {
       }
       case "stepper":
       case "slider":
-        Object.assign(e, numberRange(o as ScreenElement));
+        Object.assign(e, numberRange(o as Partial<ScreenElement>));
         if (submit) e.submit = submit;
         break;
       case "input": {
-        e.maxLength = inputLength(o as ScreenElement);
+        e.maxLength = inputLength(o as Partial<ScreenElement>);
         const placeholder = plain(o.placeholder, L.placeholder);
         if (placeholder) e.placeholder = placeholder;
         if (submit) e.submit = submit;

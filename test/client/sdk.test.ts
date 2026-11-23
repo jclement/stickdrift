@@ -243,6 +243,80 @@ describe("StickDriftHost WebRTC", () => {
   });
 });
 
+describe("StickDriftHost screens", () => {
+  const hand = {
+    id: "r1",
+    items: [
+      { type: "cards" as const, id: "hand", pick: 2, cards: [{ id: "c1", text: "one" }, { id: "c2", text: "two" }, { id: "c3", text: "three" }] },
+      { type: "input" as const, id: "answer", maxLength: 4 },
+      { type: "button" as const, id: "ready", label: "READY" },
+    ],
+  };
+  const ev = (n: number, screen: string, element: string, value?: unknown, pad = 0) => ({ t: "event", pad, n, screen, element, value });
+
+  it("queues answers to the current screen once, and drops stale ones", () => {
+    const { host, ws } = track(start([0]));
+    const heard: string[] = [];
+    host.on("event", (a) => heard.push(a.element));
+    host.setPad(0, { layout: "screen", screen: hand });
+    expect(ws.messages("pad")[0]).toMatchObject({ pad: 0, layout: "screen", screen: { id: "r1" } });
+    ws.json(ev(1, "r1", "hand", ["c3", "c1"]));
+    ws.json(ev(1, "r1", "hand", ["c3", "c1"])); // the copy from the other path
+    ws.json(ev(2, "r1", "answer", "toolong"));
+    ws.json(ev(3, "r0", "ready")); // another screen
+    ws.json(ev(4, "r1", "hand", ["c1"])); // wrong count
+    expect(host.events()).toEqual([
+      { pad: 0, screen: "r1", element: "hand", type: "cards", value: ["c3", "c1"] },
+      { pad: 0, screen: "r1", element: "answer", type: "input", value: "tool" },
+    ]);
+    expect(host.events()).toEqual([]);
+    expect(heard).toEqual(["hand", "answer"]);
+
+    host.setPad(0, { screen: { id: "r2", items: [{ type: "button", id: "ready", label: "GO" }] } });
+    ws.json(ev(5, "r1", "ready"));
+    ws.json(ev(6, "r2", "ready"));
+    expect(host.events().map((a) => a.screen)).toEqual(["r2"]);
+
+    host.setPad(0, { layout: "quiz" }); // not a screen any more
+    ws.json(ev(7, "r2", "ready"));
+    expect(host.events()).toEqual([]);
+  });
+
+  it("falls back to the room's screen, and resets per phone", () => {
+    const { host, ws } = track(start([0]));
+    host.setLook({ layout: "screen", screen: { id: "lobby", items: [{ type: "button", id: "ready", label: "READY" }] } });
+    ws.json(ev(1, "lobby", "ready"));
+    host.setPad(0, { screen: hand });
+    ws.json(ev(2, "lobby", "ready"));
+    host.setPad(0, { screen: null });
+    ws.json(ev(3, "lobby", "ready"));
+    expect(host.events().map((a) => a.screen)).toEqual(["lobby", "lobby"]);
+    ws.json({ t: "join", pad: 0, device: "dev-0", rejoin: true }); // reloaded phone, counter restarts
+    ws.json(ev(1, "lobby", "ready"));
+    expect(host.events()).toHaveLength(1);
+  });
+
+  it("takes answers over the data channel too", async () => {
+    const { host, ws } = track(start([0]));
+    host.setPad(0, { layout: "screen", screen: hand });
+    ws.json({ t: "signal", pad: 0, data: { type: "offer", sdp: "v=0" } });
+    await settle();
+    const dc = FakePeer.instances[0].connect();
+    dc.message(JSON.stringify({ t: "event", n: 1, screen: "r1", element: "ready" }) as unknown as ArrayBuffer);
+    ws.json(ev(1, "r1", "ready")); // same answer by the relay
+    dc.message("not json" as unknown as ArrayBuffer);
+    expect(host.events()).toEqual([{ pad: 0, screen: "r1", element: "ready", type: "button", value: undefined }]);
+  });
+
+  it("ignores events when it never set a screen", () => {
+    const { host, ws } = track(start([0]));
+    ws.json(ev(1, "x", "y"));
+    ws.frame(frame(1, A));
+    expect(host.events()).toEqual([]);
+    expect(pressed(host.poll().get(0), "A")).toBe(true);
+  });
+});
+
 describe("renamed class", () => {
   it("keeps ControllerHost as an alias of StickDriftHost", () => {
     expect(ControllerHost).toBe(StickDriftHost);

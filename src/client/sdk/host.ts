@@ -17,12 +17,21 @@
 //   * A phone whose data channel dies offers again; the new connection
 //     replaces the old one, and the old one's late events are ignored.
 //   * If another host takes the room with our key, we stop rather than fight.
+//
+// Screens (layout "screen"): setPad/setLook with a screen, then read the
+// players' answers with events() once per frame, or host.on("event", fn).
+// Only answers to a pad's current screen get through, once each.
+//
+//   host.setPad(0, { layout: "screen", screen: { id: "r1", items: [{ type: "cards", id: "hand", pick: 1, cards }] } });
+//   for (const ev of host.events()) if (ev.element === "hand") play(ev.pad, ev.value as string[]);
 import {
   Button,
   FRAME_PING,
   ICE_SERVERS,
   PING,
   PONG,
+  checkEvent,
+  cleanScreen,
   decodeFrame,
   emptyState,
   randomCode,
@@ -33,6 +42,8 @@ import {
   type PadInfo,
   type PadLook,
   type PadState,
+  type Screen,
+  type ScreenElementType,
   type ToHostMessage,
 } from "../../shared/protocol";
 
@@ -107,6 +118,21 @@ export interface PadPoll {
   via?: "p2p" | "relay";
 }
 
+/** A player's answer on a screen. value: cards and choices, the chosen ids
+ *  in order (string[]); stepper and slider, a number; input, the typed text
+ *  (plain text: never render it as markup); button, undefined. */
+export interface ScreenAnswer {
+  /** Seat number. */
+  pad: number;
+  /** The screen it answers (always the pad's current one). */
+  screen: string;
+  /** The element's id. */
+  element: string;
+  /** The element's type. */
+  type: ScreenElementType;
+  value: string[] | number | string | undefined;
+}
+
 /** Events a host emits. Subscribe with host.on(name, fn). */
 export interface HostEvents {
   /** The room is live: show joinUrl as a QR code. Fires again after a reconnect. */
@@ -121,6 +147,8 @@ export interface HostEvents {
   rtt: (pad: Pad) => void;
   /** A pad's P2P data channel came up or went down (pad.p2p). */
   p2p: (pad: Pad) => void;
+  /** A player answered their current screen (also queued for events()). */
+  event: (answer: ScreenAnswer) => void;
   /** The relay connection dropped; the host is reconnecting (unless closed or replaced). */
   close: () => void;
   /** The relay reported a problem. code "replaced": another host took the room; this one stopped. */
@@ -157,6 +185,12 @@ export class StickDriftHost {
   private peers = new Map<number, RTCPeerConnection>();
   private signalChains = new Map<number, Promise<void>>(); // per-pad signalling, in order
   private fresh = new Set<number>(); // pads whose next frame resets sequencing
+  // Screens: what this host last told the relay about each pad's own layout
+  // and screen (merged over the room's look, as the relay does), the answers
+  // waiting for events(), and per-pad de-duplication of event counters.
+  private padLooks = new Map<number, { layout?: string; screen?: Screen }>();
+  private answers: ScreenAnswer[] = [];
+  private seen = new Map<number, EventWindow>();
 
   /** Opens a room straight away; listen for "open" to get the join URL. */
   constructor(private opts: HostOptions = {}) {
@@ -190,6 +224,11 @@ export class StickDriftHost {
   /** setPad changes one pad's look. The relay merges it over what the pad had,
    *  so setPad(0, { label: "RED" }) changes only the label. */
   setPad(pad: number, look: PadLook) {
+    const own = this.padLooks.get(pad) ?? {};
+    if (look.layout) own.layout = look.layout;
+    if (look.screen === null) delete own.screen; // back to the room's screen
+    else if (look.screen) own.screen = cleanScreen(look.screen) ?? own.screen;
+    this.padLooks.set(pad, own);
     this.send({ t: "pad", pad, ...look });
   }
 
@@ -197,6 +236,12 @@ export class StickDriftHost {
   setLook(look: PadLook) {
     this.opts.look = look;
     this.send({ t: "config", look });
+  }
+
+  /** events returns the screen answers since the last call, oldest first.
+   *  Call it once per frame, like poll(). */
+  events(): ScreenAnswer[] {
+    return this.answers.splice(0);
   }
 
   /** haptic vibrates a phone: one duration in ms or an on/off pattern.
@@ -207,6 +252,7 @@ export class StickDriftHost {
 
   /** kick disconnects a phone and frees its seat. */
   kick(pad: number) {
+    this.padLooks.delete(pad); // the relay forgets the seat's look too
     this.send({ t: "kick", pad });
   }
 
@@ -293,7 +339,12 @@ export class StickDriftHost {
         this.onWelcome(m.code, m.joinUrl, m.pads);
         break;
       case "join":
+        // A new phone in the seat starts from the room's look, as on the relay.
+        if (!m.rejoin) this.padLooks.delete(m.pad);
         this.join(m, true);
+        break;
+      case "event":
+        this.onEvent(m.pad, m);
         break;
       case "leave":
         this.leave(m.pad);
@@ -334,6 +385,7 @@ export class StickDriftHost {
     const p: Pad = existing ?? { pad: info.pad, device: info.device, connected: false, p2p: false, state: emptyState(), frames: 0, presses: 0, releases: 0 };
     const wasHere = p.connected;
     this.fresh.add(info.pad); // the phone may have restarted its sequence numbers
+    this.seen.set(info.pad, new EventWindow()); // and its event counter
     p.connected = true;
     p.device = info.device;
     this.pads.set(info.pad, p);
@@ -374,6 +426,34 @@ export class StickDriftHost {
     this.emit("input", p, prev);
   }
 
+  // ---- Screens ----
+
+  /** currentScreen is the screen pad n shows now: its own if it has one,
+   *  else the room's, and only while its layout is "screen". */
+  private currentScreen(n: number): Screen | null {
+    const own = this.padLooks.get(n);
+    const room = this.opts.look ?? {};
+    const layout = own?.layout ?? room.layout;
+    if (layout !== "screen") return null;
+    return own?.screen ?? cleanScreen(room.screen);
+  }
+
+  /** onEvent queues an answer if it answers pad n's current screen and is
+   *  not a copy of one already seen (answers come by both paths). */
+  private onEvent(n: number, raw: unknown) {
+    if (!this.pads.get(n)?.connected) return;
+    const screen = this.currentScreen(n);
+    const ev = checkEvent(screen, raw);
+    if (!ev || !screen) return;
+    const window = this.seen.get(n) ?? new EventWindow();
+    this.seen.set(n, window);
+    if (!window.accept(ev.n)) return;
+    const type = screen.items.find((e) => e.id === ev.element)!.type;
+    const answer: ScreenAnswer = { pad: n, screen: ev.screen, element: ev.element, type, value: ev.value ?? undefined };
+    this.answers.push(answer);
+    this.emit("event", answer);
+  }
+
   // ---- WebRTC ----
 
   /** queueSignal handles a pad's signalling messages strictly in order. */
@@ -411,6 +491,15 @@ export class StickDriftHost {
       dc.onopen = () => ((dcOpen = true), refresh());
       dc.onclose = () => ((dcOpen = false), refresh());
       dc.onmessage = (m) => {
+        if (typeof m.data === "string") {
+          // A screen answer, straight from the phone; the channel says who.
+          try {
+            this.onEvent(pad, JSON.parse(m.data));
+          } catch {
+            // Not JSON: ignore it.
+          }
+          return;
+        }
         const data = m.data as ArrayBuffer;
         if (new Uint8Array(data)[0] === FRAME_PING) dc.send(data); // echo: the phone times the round trip
         else this.onFrame(data, pad);
@@ -462,6 +551,29 @@ export class StickDriftHost {
   private emit<K extends keyof HostEvents>(ev: K, ...args: Parameters<HostEvents[K]>) {
     const list = (this.listeners[ev] ?? []) as unknown as ((...a: unknown[]) => void)[];
     for (const fn of [...list]) fn(...args);
+  }
+}
+
+/** EventWindow de-duplicates one phone's event counters: the highest seen
+ *  and which of the 64 before it have been (events may arrive twice, and out
+ *  of order over the unordered data channel). */
+class EventWindow {
+  private high = 0;
+  private bits = 0n; // bit i: high - i seen
+
+  accept(n: number): boolean {
+    if (n <= 0) return false;
+    if (this.high === 0 || n > this.high) {
+      const shift = this.high === 0 ? 64 : n - this.high;
+      this.bits = shift >= 64 ? 1n : ((this.bits << BigInt(shift)) | 1n) & 0xffffffffffffffffn;
+      this.high = n;
+      return true;
+    }
+    const back = this.high - n;
+    const bit = 1n << BigInt(back);
+    if (back >= 64 || this.bits & bit) return false;
+    this.bits |= bit;
+    return true;
   }
 }
 

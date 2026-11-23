@@ -719,3 +719,198 @@ body.buzz .surface { animation: buzz-shake var(--buzz-ms, 300ms) linear; }
   font-weight: 700;
   letter-spacing: 0.12em;
 }
+
+/* ---- Screen layout ----
+   A normal, vertically scrolling portrait page (cards, choices, steppers, a
+   text box, buttons) instead of a game pad. It sits above the (empty)
+   control surface, below the HUD, and is the one place the page scrolls and
+   text can be selected. Themes reach it through the same variables. */
+.screen-page { display: none; }
+body.screen-mode .surface { display: none; }
+body.screen-mode .screen-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: max(78px, calc(env(safe-area-inset-top) + 70px)) max(16px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  box-sizing: border-box;
+}
+body.screen-mode .screen-page > * { width: 100%; max-width: 560px; margin: 0 auto; flex: none; }
+.screen-page.locked > * { opacity: 0.7; }
+.screen-page button { font: inherit; color: inherit; cursor: pointer; -webkit-user-select: none; user-select: none; }
+.screen-page button:disabled { cursor: default; }
+
+.scr-heading { margin: 0; font-size: 22px; line-height: 1.2; font-weight: 700; overflow-wrap: anywhere; }
+.scr-text { margin: 0; font-size: 15px; line-height: 1.45; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.scr-hint { font-size: 11px; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 8px; }
+.scr-sent { margin-top: 8px; text-align: center; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; color: var(--accent); }
+
+/* Cards: two columns of tall text cards; the picked ones light up. */
+.scr-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.scr-card {
+  position: relative;
+  min-height: 112px;
+  padding: 14px 14px 18px;
+  text-align: left;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 600;
+  border-radius: 14px;
+  border: 1px solid var(--rim);
+  background: var(--glass);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.3);
+  overflow-wrap: anywhere;
+  transition: transform 0.08s, box-shadow 0.12s, border-color 0.12s;
+}
+.scr-card:active:not(:disabled) { transform: scale(0.97); }
+.scr-card.picked, .scr-choice.picked {
+  border-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.22);
+  box-shadow: 0 0 0 2px var(--accent), 0 0 24px rgb(var(--accent-rgb) / 0.45);
+}
+.scr-order {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Choices: a list of full-width rows, with a player's colour or avatar. */
+.scr-choice-list { display: flex; flex-direction: column; gap: 8px; }
+.scr-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  min-height: 52px;
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 17px;
+  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid var(--rim);
+  background: var(--glass);
+  overflow-wrap: anywhere;
+}
+.scr-swatch { flex: none; width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 2px rgb(255 255 255 / 0.25); }
+.scr-avatar { flex: none; width: 32px; height: 32px; image-rendering: pixelated; object-fit: contain; }
+.scr-choice .scr-order { position: static; margin-left: auto; order: 2; }
+
+.off .scr-card:not(.picked), .off .scr-choice:not(.picked) { opacity: 0.45; }
+
+/* Buttons: the submit under an element, and stand-alone buttons. */
+.scr-submit, .scr-button {
+  --c: var(--accent);
+  display: block;
+  width: 100%;
+  min-height: 54px;
+  margin-top: 10px;
+  border-radius: 14px;
+  border: 0;
+  background: var(--c);
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  box-shadow: 0 6px 0 color-mix(in oklab, var(--c) 55%, black), 0 0 24px color-mix(in oklab, var(--c) 40%, transparent);
+  transition: transform 0.06s, box-shadow 0.06s, opacity 0.12s;
+}
+.scr-button { margin-top: 0; }
+.scr-submit:active:not(:disabled), .scr-button:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 color-mix(in oklab, var(--c) 55%, black); }
+.scr-submit:disabled, .scr-button:disabled { opacity: 0.35; box-shadow: none; }
+.scr-button.sent:disabled { opacity: 0.6; }
+
+/* Stepper and slider. */
+.scr-step-row { display: flex; align-items: center; justify-content: center; gap: 18px; }
+.scr-step {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid var(--rim);
+  background: var(--glass-hi);
+  font-size: 30px !important;
+  font-weight: 700;
+}
+.scr-step:disabled { opacity: 0.35; }
+.scr-value { min-width: 96px; text-align: center; font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.scr-slider .scr-value { display: block; margin-bottom: 6px; }
+.scr-range { width: 100%; height: 40px; accent-color: var(--accent); touch-action: none; }
+
+/* Text box. */
+.scr-input { display: block; }
+.scr-field {
+  width: 100%;
+  box-sizing: border-box;
+  height: 52px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--rim);
+  background: rgb(0 0 0 / 0.3);
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  caret-color: var(--accent);
+  -webkit-user-select: text;
+  user-select: text;
+}
+.scr-field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Status line, with an optional countdown or progress bar. */
+.scr-status { text-align: center; font-size: 14px; color: var(--muted); letter-spacing: 0.04em; }
+.scr-bar { height: 6px; margin-top: 8px; border-radius: 3px; background: var(--glass-hi); overflow: hidden; }
+.scr-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left; }
+@keyframes scr-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* What a preview would have sent (no room to send it to). */
+.preview-event {
+  position: fixed;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 30;
+  max-width: 90vw;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgb(10 8 18 / 0.85);
+  border: 1px solid var(--accent);
+  color: #fff;
+  font: 600 13px/1.2 "JetBrains Mono", ui-monospace, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+}
+.preview-event.show { animation: preview-event 2.4s ease-out forwards; }
+@keyframes preview-event { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Themes for the screen page. */
+body.shape-square .scr-card, body.shape-square .scr-choice, body.shape-square .scr-submit,
+body.shape-square .scr-button, body.shape-square .scr-field, body.shape-square .scr-step { border-radius: 3px; }
+body.font-pixel .scr-heading { font-size: 15px; line-height: 1.5; }
+body.font-pixel .scr-card, body.font-pixel .scr-choice { font-size: 11px; line-height: 1.6; }
+body.font-pixel .scr-submit, body.font-pixel .scr-button { font-size: 12px; }
+body.font-pixel .scr-text, body.font-pixel .scr-status { font-size: 10px; line-height: 1.7; }
+body.style-neon .scr-card, body.style-neon .scr-choice { background: rgb(0 0 0 / 0.45); border-color: rgb(var(--accent-rgb) / 0.5); }
+body.style-neon .scr-submit, body.style-neon .scr-button { background: transparent; border: 2px solid var(--c); color: #fff; text-shadow: 0 0 10px var(--c); box-shadow: 0 0 18px var(--c), inset 0 0 14px color-mix(in oklab, var(--c) 40%, transparent); }
+body.style-flat .scr-card, body.style-flat .scr-choice { background: rgb(255 255 255 / 0.08); box-shadow: none; border: 0; }
+body.style-flat .scr-submit, body.style-flat .scr-button { box-shadow: none; }
+body.style-retro .scr-card, body.style-retro .scr-choice, body.style-retro .scr-field { border-radius: 0; border: 3px solid #000; background: #2b2d42; box-shadow: 4px 4px 0 #000; }
+body.style-retro .scr-submit, body.style-retro .scr-button { border-radius: 0; border: 3px solid #000; box-shadow: 4px 4px 0 #000; text-shadow: 2px 2px 0 #000; }
+body.style-candy .scr-card, body.style-candy .scr-choice { background: #fff; border: 0; box-shadow: 0 4px 0 #ffc2dc; }
+body.style-candy .scr-field { background: #fff; color: var(--text); }
+body.style-candy .scr-step { background: #ffd6e8; }

@@ -7,12 +7,13 @@
 // socket is binary; a screen wake lock and full screen keep the phone from
 // dozing or scrolling mid-game.
 import "./pad.css";
-import { cleanCustom, cleanTheme, isCode, LAYOUTS, type CustomLayout, type PadLook, type Theme, type ToPadMessage } from "../../shared/protocol";
+import { cleanCustom, cleanScreen, cleanTheme, isCode, LAYOUTS, type CustomLayout, type PadLook, type Screen, type ScreenEvent, type Theme, type ToPadMessage } from "../../shared/protocol";
 import { Input, describe } from "./input";
 import { Transport } from "./transport";
 import { haptic, setupHaptics } from "./haptics";
 import { build, swapPartner, type Built } from "./layouts";
 import type { Control } from "./controls";
+import { ScreenView, type EventValue } from "./screen";
 
 // ---- Elements ----
 
@@ -27,6 +28,7 @@ const hudRtt = $("hud-rtt");
 const message = $("message");
 const swapBtn = $("swap") as HTMLButtonElement;
 const fullBtn = $("fullscreen") as HTMLButtonElement;
+const screenPage = $("screen-page");
 
 // ---- Identity ----
 
@@ -54,6 +56,37 @@ let transport: Transport | null = null;
 
 const input = new Input((frame) => transport?.sendFrame(frame));
 
+// ---- Screen layout ----
+
+let eventCount = 0; // n for screen events: counts up for this page's life
+const screenView = new ScreenView(screenPage, sendEvent, () => haptic(8));
+
+/** sendEvent sends a screen answer, naming the screen it was given on. */
+function sendEvent(element: string, value: EventValue) {
+  const screen = screenView.id;
+  if (!screen) return;
+  const m: ScreenEvent = { t: "event", n: ++eventCount, screen, element };
+  if (value !== undefined) m.value = value;
+  if (document.body.classList.contains("preview")) return showPreviewEvent(m);
+  transport?.sendEvent(m);
+}
+
+/** showPreviewEvent shows what would have been sent, for the designer and
+ *  the docs, where there is no room. */
+function showPreviewEvent(m: ScreenEvent) {
+  let log = document.getElementById("preview-event");
+  if (!log) {
+    log = document.createElement("div");
+    log.id = "preview-event";
+    log.className = "preview-event";
+    document.body.append(log);
+  }
+  log.textContent = `→ ${m.element}${m.value === undefined ? "" : `: ${JSON.stringify(m.value)}`}`;
+  log.classList.remove("show");
+  void log.offsetWidth; // restart the fade
+  log.classList.add("show");
+}
+
 // ---- Connection ----
 
 function connect() {
@@ -80,7 +113,9 @@ function onMessage(m: ToPadMessage) {
   switch (m.t) {
     case "setup":
       padNumber = m.pad;
-      look = m;
+      // The relay validated the screen; check again (and vet the avatars
+      // it filled in) because this page renders it.
+      look = { ...m, screen: cleanScreen(m.screen, true) };
       layoutId = m.layout ?? "dpad-ab";
       applyLook();
       relayout();
@@ -211,12 +246,31 @@ function relayout() {
   for (const c of owners.values()) c.up(-1);
   owners.clear();
   input.releaseAll();
+  const screenMode = currentLayout() === "screen";
+  document.body.classList.toggle("screen-mode", screenMode);
+  if (screenMode) {
+    // A page, not a controller: no controls, no landscape, the page scrolls.
+    surface.replaceChildren();
+    built = { controls: [], needsLandscape: false, usesTilt: false };
+    builtW = surface.clientWidth;
+    builtH = surface.clientHeight;
+    rotateScreen.classList.add("hidden");
+    if (look.screen) screenView.show(look.screen);
+    else showWaitingScreen();
+    return;
+  }
+  screenView.clear();
   built = build(currentLayout(), input, surface, look);
   builtW = surface.clientWidth;
   builtH = surface.clientHeight;
   const portrait = innerHeight > innerWidth;
   rotateScreen.classList.toggle("hidden", !(built.needsLandscape && portrait));
   if (built.usesTilt && !document.body.classList.contains("preview")) startTilt();
+}
+
+/** showWaitingScreen fills a screen layout the game hasn't described yet. */
+function showWaitingScreen() {
+  screenView.show({ id: "_waiting", items: [{ type: "status", text: "Waiting for the game…" }] });
 }
 
 function showStatus(title: string, text: string, final = false) {
@@ -453,15 +507,47 @@ function showJoin(prefill = "") {
 /** customFromHash reads a custom layout from #layout=<base64url JSON>, so a
  *  layout can be previewed or shared as a plain link. */
 function customFromHash(): CustomLayout | null {
+  return cleanCustom(jsonFromHash(false));
+}
+
+/** screenFromHash reads a screen from the same #layout= link, for
+ *  /j?preview=screen. */
+function screenFromHash(): Screen | null {
+  return cleanScreen(jsonFromHash(true));
+}
+
+/** jsonFromHash decodes #layout=<base64url JSON>. Screens are UTF-8 (card
+ *  text is anything); custom layouts keep the Latin-1 reading they always
+ *  had, so existing links show exactly what they did. */
+function jsonFromHash(utf8: boolean): unknown {
   const m = location.hash.match(/layout=([A-Za-z0-9_-]+)/);
   if (!m) return null;
   try {
-    const json = atob(m[1].replace(/-/g, "+").replace(/_/g, "/"));
-    return cleanCustom(JSON.parse(json));
+    const bin = atob(m[1].replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(utf8 ? new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))) : bin);
   } catch {
     return null;
   }
 }
+
+/** SAMPLE_SCREEN is what /j?preview=screen shows with no #layout. */
+const SAMPLE_SCREEN: Screen = {
+  id: "sample",
+  items: [
+    { type: "text", text: "Round 3 · Ann is the judge" },
+    { type: "heading", text: "The worst thing to hear from your dentist: ____" },
+    {
+      type: "cards", id: "hand", pick: 1, submit: "PLAY IT", cards: [
+        { id: "c1", text: "\"I learned this on YouTube.\"" },
+        { id: "c2", text: "A surprising amount of glitter." },
+        { id: "c3", text: "My other hobby is taxidermy." },
+        { id: "c4", text: "Hold still, this is my first time." },
+        { id: "c5", text: "Whoops." },
+      ],
+    },
+    { type: "status", text: "Waiting for 3 players…", seconds: 45 },
+  ],
+};
 
 // ---- Self-update ----
 
@@ -517,7 +603,8 @@ let previewExtras: Partial<PadLook> = {};
 
 function preview(layout: string, colour: string, custom: CustomLayout | null, theme: Theme | null) {
   look = { layout, color: colour, label: "PREVIEW", swap: false, custom: custom ?? undefined, theme: theme ?? undefined };
-  for (const [k, v] of Object.entries(previewExtras)) if (v !== undefined && !(typeof v === "object" && !Object.keys(v).length)) (look as Record<string, unknown>)[k] = v;
+  if (layout === "screen") look.screen = screenFromHash() ?? SAMPLE_SCREEN;
+  for (const [k, v] of Object.entries(previewExtras)) if (v !== undefined && v !== null && !(typeof v === "object" && !Object.keys(v).length)) (look as Record<string, unknown>)[k] = v;
   layoutId = layout;
   padNumber = 0;
   document.body.classList.add("preview");
