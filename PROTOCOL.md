@@ -199,22 +199,33 @@ and `avatar` before sending the screen to phones.
 **Events.** When a player answers, the phone sends
 
 ```json
-{"t":"event","n":7,"screen":"r1","element":"hand","value":["c2"]}
+{"t":"event","s":"k3j9x0q1","n":7,"screen":"r1","element":"hand","value":["c2"]}
 ```
 
 `value`: cards and choices, the chosen ids in order (exactly `pick` of
-them); stepper and slider, a number; input, a string; button, absent. `n`
-counts up from 1 per page load. The phone sends each event **once over the
-data channel if it is open and once over the relay** (the channel is
-unreliable, and an answer is said only once). The relay forwards it, with
+them); stepper and slider, a number; input, a string; button, absent. `s`
+names the phone page's event session (1-32 of `[A-Za-z0-9_-]`, new on every
+page load) and `n` counts up from 1 within it (at most 2^31).
+
+**Delivery.** The phone sends each event over the data channel (if open)
+and the relay, and keeps it until it is acknowledged with
+`{"t":"ack","n":7,"s":"…"}`: the relay acknowledges every event it receives
+(forwarded or not), and a host acknowledges events it receives on the data
+channel by sending the same text back on it. Until then the phone resends
+it on the channel every 250 ms, and on the relay every 3 s and whenever the
+relay reconnects. Relay → pad also gains `{"t":"ack",…}`. The relay forwards it, with
 `pad` added and the value cleaned, only if it answers the screen that pad
 shows now (`screen` matches, the element exists, is interactive and
 enabled, the screen isn't locked, the value fits the element); it never
 forwards events for a pad whose layout isn't `screen`.
 
 Hosts must apply the same check to events from the data channel, and must
-drop copies: keep, per pad, the highest `n` seen and which of the 64 below
-it have been; accept an `n` once; reset when the pad (re)joins.
+drop copies, which arrive by both paths, retried, out of order and across
+reconnects: keep, per pad, the session `s`, the highest `n` seen in it and
+which of the 64 below it have been; accept an `n` once; start afresh only
+when `s` changes (a reloaded page), **not** when the pad reconnects. Check
+the screen against the screen as the relay normalised it (the rules
+above), which is what the phone shows.
 
 Re-sending a screen with the same `id` keeps the player's picks and typed
 text on the phone. An element that has sent an event locks until a screen
