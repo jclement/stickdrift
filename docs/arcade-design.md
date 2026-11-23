@@ -1,6 +1,6 @@
 # StickDrift Arcade: one party, every game
 
-Status: proposal (2026-11-23). Nothing here is built yet.
+Status: shelved (2026-11-23). Jeff preferred to keep listing the games on the homepage for now; kept for reference.
 
 ## The goal
 
