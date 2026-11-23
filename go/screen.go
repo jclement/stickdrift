@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"math"
 	"regexp"
+	"strings"
 )
 
 // Screen is what a phone shows in Layout "screen". Send it in a Look:
@@ -168,10 +169,11 @@ func (e Element) numberRange() (lo, hi, step, v float64) {
 	if span == 0 {
 		span = 1
 	}
-	if step <= 0 {
+	if step > 0 {
+		step = math.Min(step, span)
+	} else {
 		step = 1
 	}
-	step = math.Min(step, span)
 	return lo, hi, step, math.Max(lo, math.Min(hi, clamp(e.Value)))
 }
 
@@ -218,6 +220,7 @@ type wireEvent struct {
 	T       string          `json:"t"`
 	Pad     int             `json:"pad"`
 	N       int64           `json:"n"` // the phone's event counter, for de-duplication
+	S       string          `json:"s"` // the phone page's event session (n counts within it)
 	Screen  string          `json:"screen"`
 	Element string          `json:"element"`
 	Value   json.RawMessage `json:"value"`
@@ -310,23 +313,29 @@ func truncateRunes(s string, n int) string {
 	return string(r[:n])
 }
 
-// eventWindow de-duplicates a phone's events. Each event carries a counter
-// n, and may arrive twice (over the data channel and the relay) or out of
-// order (the channel is unordered), so remember the highest n seen and which
-// of the 64 before it have been.
+// maxEventN is the highest event counter the relay accepts.
+const maxEventN = 1 << 31
+
+// eventWindow de-duplicates a phone's events. Each carries a counter n
+// within an event session s (one per phone page load). Copies arrive twice
+// (data channel and relay), retried until acknowledged, out of order (the
+// channel is unordered) and across reconnects, so remember, per session,
+// the highest n seen and which of the 64 before it have been. Only a new
+// session starts afresh; a reconnect does not. EventWindow in
+// src/shared/protocol.ts matches.
 type eventWindow struct {
-	fresh bool // the next event resets the window (the pad (re)joined)
-	high  int64
-	seen  uint64 // bit i: high-i has been seen
+	session string
+	high    int64
+	seen    uint64 // bit i: high-i has been seen
 }
 
-// accept reports whether n is new, and records it.
-func (w *eventWindow) accept(n int64) bool {
-	if n <= 0 {
+// accept reports whether (s, n) is new, and records it.
+func (w *eventWindow) accept(s string, n int64) bool {
+	if n <= 0 || n > maxEventN {
 		return false
 	}
-	if w.fresh || w.high == 0 {
-		w.fresh, w.high, w.seen = false, n, 1
+	if w.high == 0 || s != w.session {
+		w.session, w.high, w.seen = s, n, 1
 		return true
 	}
 	if n > w.high {
@@ -346,4 +355,131 @@ func (w *eventWindow) accept(n int64) bool {
 	}
 	w.seen |= 1 << uint(back)
 	return true
+}
+
+// Text limits, as cleanScreen applies them (characters).
+const (
+	maxHeading     = 80
+	maxText        = 280
+	maxStatus      = 80
+	maxOptionText  = 60
+	maxLabel       = 24 // button labels and submit labels
+	maxPlaceholder = 60
+	maxCountdown   = 3600
+)
+
+// hexColor is what colour fields may hold.
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{3,8}$`)
+
+// plainText drops control characters other than newline and cuts s to n
+// characters, as the relay does.
+func plainText(s string, n int) string {
+	s = strings.Map(func(r rune) rune {
+		if (r < 0x20 && r != '\n') || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
+	return truncateRunes(s, n)
+}
+
+// normalize returns the screen exactly as the relay will pass it on (the
+// rules of cleanScreen in src/shared/protocol.ts): unknown types, bad or
+// repeated ids and empty elements dropped, lists and text cut to their
+// limits, picks and numbers clamped. Events are checked against this, so a
+// game is held to what its players were actually shown. It returns nil if
+// the relay would refuse the screen outright (a bad id).
+func (s *Screen) normalize() *Screen {
+	if s == nil || !validID(s.ID, maxScreenIDLen) {
+		return nil
+	}
+	out := &Screen{ID: s.ID, Locked: s.Locked, Items: []Element{}}
+	ids := map[string]bool{}
+	items := s.Items
+	if len(items) > MaxScreenItems {
+		items = items[:MaxScreenItems]
+	}
+	for _, in := range items {
+		e := Element{Type: in.Type}
+		if interactive(in.Type) {
+			if !validID(in.ID, maxElementIDLen) || ids[in.ID] {
+				continue
+			}
+			ids[in.ID] = true
+			e.ID, e.Disabled = in.ID, in.Disabled
+		}
+		submit := plainText(in.Submit, maxLabel)
+		switch in.Type {
+		case ElemHeading, ElemText, ElemStatus:
+			limit := map[string]int{ElemHeading: maxHeading, ElemText: maxText, ElemStatus: maxStatus}[in.Type]
+			e.Text = plainText(in.Text, limit)
+			if in.Type == ElemStatus {
+				if in.Seconds > 0 && !math.IsInf(in.Seconds, 0) {
+					e.Seconds = math.Min(maxCountdown, in.Seconds)
+				}
+				if in.Progress > 0 && !math.IsInf(in.Progress, 0) {
+					e.Progress = math.Min(1, in.Progress)
+				}
+			}
+			if e.Text == "" && e.Seconds == 0 && e.Progress == 0 {
+				continue
+			}
+		case ElemCards:
+			seen := map[string]bool{}
+			for _, c := range in.Cards {
+				if len(e.Cards) == MaxCards {
+					break
+				}
+				if !validID(c.ID, maxElementIDLen) || seen[c.ID] {
+					continue
+				}
+				seen[c.ID] = true
+				e.Cards = append(e.Cards, Card{ID: c.ID, Text: plainText(c.Text, MaxCardText)})
+			}
+			if len(e.Cards) == 0 {
+				continue
+			}
+			e.Pick, e.Submit = max(1, min(MaxPick, in.Pick, len(e.Cards))), submit
+		case ElemChoices:
+			seen := map[string]bool{}
+			for _, o := range in.Options {
+				if len(e.Options) == MaxOptions {
+					break
+				}
+				if !validID(o.ID, maxElementIDLen) || seen[o.ID] {
+					continue
+				}
+				seen[o.ID] = true
+				opt := Option{ID: o.ID, Text: plainText(o.Text, maxOptionText)}
+				if o.Pad != nil && *o.Pad >= 0 && *o.Pad < 64 {
+					opt.Pad = Seat(*o.Pad)
+				}
+				if hexColor.MatchString(o.Color) {
+					opt.Color = o.Color
+				}
+				e.Options = append(e.Options, opt)
+			}
+			if len(e.Options) == 0 {
+				continue
+			}
+			e.Pick, e.Submit = max(1, min(MaxPick, in.Pick, len(e.Options))), submit
+		case ElemStepper, ElemSlider:
+			e.Min, e.Max, e.Step, e.Value = in.numberRange()
+			e.Submit = submit
+		case ElemInput:
+			e.MaxLength, e.Placeholder, e.Submit = inputLength(in.MaxLength), plainText(in.Placeholder, maxPlaceholder), submit
+		case ElemButton:
+			e.Label = plainText(in.Label, maxLabel)
+			if e.Label == "" {
+				e.Label = "OK"
+			}
+			if hexColor.MatchString(in.Color) {
+				e.Color = in.Color
+			}
+		default:
+			continue
+		}
+		out.Items = append(out.Items, e)
+	}
+	return out
 }

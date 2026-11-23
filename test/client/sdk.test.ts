@@ -291,8 +291,8 @@ describe("StickDriftHost screens", () => {
     host.setPad(0, { screen: null });
     ws.json(ev(3, "lobby", "ready"));
     expect(host.events().map((a) => a.screen)).toEqual(["lobby", "lobby"]);
-    ws.json({ t: "join", pad: 0, device: "dev-0", rejoin: true }); // reloaded phone, counter restarts
-    ws.json(ev(1, "lobby", "ready"));
+    ws.json({ t: "join", pad: 0, device: "dev-0", rejoin: true }); // reloaded phone: new session, counter restarts
+    ws.json({ ...ev(1, "lobby", "ready"), s: "reloaded" });
     expect(host.events()).toHaveLength(1);
   });
 
@@ -306,6 +306,36 @@ describe("StickDriftHost screens", () => {
     ws.json(ev(1, "r1", "ready")); // same answer by the relay
     dc.message("not json" as unknown as ArrayBuffer);
     expect(host.events()).toEqual([{ pad: 0, screen: "r1", element: "ready", type: "button", value: undefined }]);
+  });
+
+  it("survives counters far apart (no giant BigInt) and counts each once", () => {
+    const { host, ws } = track(start([0]));
+    host.setPad(0, { layout: "screen", screen: hand });
+    ws.json({ ...ev(2 ** 31, "r1", "ready"), s: "p" });
+    expect(() => ws.json({ ...ev(1, "r1", "ready"), s: "p" })).not.toThrow();
+    expect(host.events()).toHaveLength(1);
+  });
+
+  it("keeps de-duplicating across a reconnect; a new page session starts afresh", () => {
+    const { host, ws } = track(start([0]));
+    host.setPad(0, { layout: "screen", screen: hand });
+    ws.json({ ...ev(12, "r1", "ready"), s: "page1" }); // relay copy
+    ws.json({ t: "leave", pad: 0 });
+    ws.json({ t: "join", pad: 0, device: "dev-0", rejoin: true }); // the phone reconnected
+    ws.json({ ...ev(12, "r1", "ready"), s: "page1" }); // the late copy
+    expect(host.events()).toHaveLength(1);
+    ws.json({ ...ev(1, "r1", "ready"), s: "page2" }); // reloaded page
+    expect(host.events()).toHaveLength(1);
+  });
+
+  it("acknowledges answers on the data channel", async () => {
+    const { host, ws } = track(start([0]));
+    host.setPad(0, { layout: "screen", screen: hand });
+    ws.json({ t: "signal", pad: 0, data: { type: "offer", sdp: "v=0" } });
+    await settle();
+    const dc = FakePeer.instances[0].connect();
+    dc.message(JSON.stringify({ t: "event", s: "p", n: 3, screen: "r1", element: "ready" }) as unknown as ArrayBuffer);
+    expect(dc.sent).toContainEqual(JSON.stringify({ t: "ack", n: 3, s: "p" }));
   });
 
   it("ignores events when it never set a screen", () => {

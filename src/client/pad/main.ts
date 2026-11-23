@@ -59,13 +59,16 @@ const input = new Input((frame) => transport?.sendFrame(frame));
 // ---- Screen layout ----
 
 let eventCount = 0; // n for screen events: counts up for this page's life
+/** eventSession names this page's event counter, so hosts keep
+ *  de-duplicating across reconnects and start afresh only after a reload. */
+const eventSession = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
 const screenView = new ScreenView(screenPage, sendEvent, () => haptic(8));
 
 /** sendEvent sends a screen answer, naming the screen it was given on. */
 function sendEvent(element: string, value: EventValue) {
   const screen = screenView.id;
   if (!screen) return;
-  const m: ScreenEvent = { t: "event", n: ++eventCount, screen, element };
+  const m: ScreenEvent = { t: "event", n: ++eventCount, s: eventSession, screen, element };
   if (value !== undefined) m.value = value;
   if (document.body.classList.contains("preview")) return showPreviewEvent(m);
   transport?.sendEvent(m);

@@ -3,6 +3,7 @@
 package stickdrift
 
 import (
+	"encoding/json"
 	"sync"
 	"testing"
 	"time"
@@ -124,5 +125,41 @@ func TestDisableP2PIgnoresOffers(t *testing.T) {
 			t.Fatalf("relay-only host answered: %v", m)
 		}
 	case <-time.After(500 * time.Millisecond):
+	}
+}
+
+// TestScreenEventOverP2PIsAcknowledged: an event on the data channel is
+// acknowledged on it (the phone stops retrying), counted once even when the
+// phone retries it and the relay copy arrives too.
+func TestScreenEventOverP2PIsAcknowledged(t *testing.T) {
+	r := newFakeRelay(t)
+	h := startHost(t, r, Options{Look: Look{Layout: "screen", Screen: &Screen{ID: "s", Items: []Element{{Type: ElemButton, ID: "go", Label: "GO"}}}}})
+	join(t, r, h, 0)
+	ph := dialPhone(t, r, 0)
+	pump(t, r, func() *phone { return ph }, nil)
+	ph.waitOpen()
+	ev := `{"t":"event","s":"page","n":1,"screen":"s","element":"go"}`
+	for range 3 { // the phone retrying until it hears an ack
+		if err := ph.dc.SendText(ev); err != nil {
+			t.Fatal(err)
+		}
+	}
+	select {
+	case got := <-ph.echoes:
+		var ack struct {
+			T string `json:"t"`
+			N int64  `json:"n"`
+			S string `json:"s"`
+		}
+		if json.Unmarshal(got, &ack) != nil || ack.T != "ack" || ack.N != 1 || ack.S != "page" {
+			t.Fatalf("ack = %s", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no ack on the data channel")
+	}
+	r.sendJSON(map[string]any{"t": "event", "pad": 0, "s": "page", "n": 1, "screen": "s", "element": "go"})
+	time.Sleep(200 * time.Millisecond)
+	if got := h.Events(); len(got) != 1 {
+		t.Fatalf("events = %+v, want exactly one", got)
 	}
 }

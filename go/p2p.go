@@ -203,8 +203,14 @@ func (h *Host) wireChannel(n int, pr *peer, dc *webrtc.DataChannel) {
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
 		if msg.IsString {
 			// A screen event (JSON text); the channel says which pad.
+			// Acknowledge it whatever we make of it, so the phone stops
+			// retrying (this channel loses packets; the phone resends until
+			// the relay or we confirm).
 			var w wireEvent
-			if json.Unmarshal(msg.Data, &w) == nil {
+			if json.Unmarshal(msg.Data, &w) == nil && w.T == "event" {
+				if ack, err := json.Marshal(map[string]any{"t": "ack", "n": w.N, "s": w.S}); err == nil {
+					_ = dc.SendText(string(ack))
+				}
 				h.onEvent(n, w)
 			}
 			return

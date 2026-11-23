@@ -73,6 +73,42 @@ export interface PadState {
   py: number;
 }
 
+/** EventWindow de-duplicates one phone's screen events: per event session
+ *  (a phone page load), the highest counter seen and which of the 64 below
+ *  it have been. Copies arrive by both paths, retried, out of order, and
+ *  across reconnects; only a new session starts afresh. go/screen.go
+ *  eventWindow matches. */
+export class EventWindow {
+  private session: string | undefined = undefined;
+  private high = 0;
+  private bits = 0n; // bit i: high - i seen
+
+  /** accept reports whether (session, n) is new, and records it. */
+  accept(session: string | undefined, n: number): boolean {
+    if (!Number.isInteger(n) || n < 1 || n > MAX_EVENT_N) return false;
+    if (this.high === 0 || session !== this.session) {
+      this.session = session;
+      this.high = n;
+      this.bits = 1n;
+      return true;
+    }
+    if (n > this.high) {
+      const shift = n - this.high;
+      this.bits = shift >= 64 ? 1n : ((this.bits << BigInt(shift)) | 1n) & 0xffffffffffffffffn;
+      this.high = n;
+      return true;
+    }
+    // Check the bound before making the mask: a huge gap must not become a
+    // huge BigInt.
+    const back = this.high - n;
+    if (back >= 64) return false;
+    const bit = 1n << BigInt(back);
+    if (this.bits & bit) return false;
+    this.bits |= bit;
+    return true;
+  }
+}
+
 /** A neutral (nothing pressed) state. */
 export function emptyState(): PadState {
   return { seq: 0, buttons: 0, lx: 0, ly: 0, rx: 0, ry: 0, px: 0, py: 0 };
@@ -376,17 +412,24 @@ export interface Screen {
 
 /** A player's answer. Phone -> relay (and over the data channel); the relay
  *  adds pad. value: cards and choices, the chosen ids in order; stepper and
- *  slider, a number; input, a string; button, absent. n counts up per phone
- *  page so a host can drop the copy that arrives by the other path. */
+ *  slider, a number; input, a string; button, absent. n counts up from 1
+ *  within an event session s (one per phone page load), so a host can drop
+ *  copies (the phone retries until acknowledged, by both paths) and keep
+ *  de-duplicating across reconnects. */
 export interface ScreenEvent {
   t: "event";
   n: number;
+  s?: string; // the phone page's event session
   screen: string;
   element: string;
   value?: string[] | number | string | null;
 }
 
 const ID = /^[A-Za-z0-9_-]{1,32}$/;
+/** An event session id: what a phone page calls its event counter. */
+export const SESSION_ID = /^[A-Za-z0-9_-]{1,32}$/;
+/** The highest event counter accepted. */
+export const MAX_EVENT_N = 2 ** 31;
 const SCREEN_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** plain makes untrusted text safe to keep: a string, control characters
@@ -459,7 +502,8 @@ export function cleanScreen(raw: unknown, allowAvatars = false): Screen | null {
         if (text) e.text = text;
         if (type === "status") {
           if (finite(o.seconds) && o.seconds > 0) e.seconds = Math.min(L.countdown, o.seconds);
-          if (finite(o.progress)) e.progress = Math.max(0, Math.min(1, o.progress));
+          // 0 is the same as no bar (and is what Go's omitempty sends).
+          if (finite(o.progress) && o.progress > 0) e.progress = Math.min(1, o.progress);
         }
         if (!e.text && e.seconds === undefined && e.progress === undefined) continue;
         break;
@@ -524,10 +568,12 @@ export function checkEvent(screen: Screen | null | undefined, raw: unknown): Scr
   if (!screen || screen.locked || !raw || typeof raw !== "object") return null;
   const m = raw as Record<string, unknown>;
   if (m.screen !== screen.id || typeof m.element !== "string") return null;
-  if (!finite(m.n) || !Number.isInteger(m.n) || m.n < 1 || m.n > 2 ** 31) return null;
+  if (!finite(m.n) || !Number.isInteger(m.n) || m.n < 1 || m.n > MAX_EVENT_N) return null;
+  if (m.s !== undefined && (typeof m.s !== "string" || !SESSION_ID.test(m.s))) return null;
   const el = screen.items.find((e) => e.id === m.element && INTERACTIVE_ELEMENTS.includes(e.type));
   if (!el || el.disabled) return null;
   const out: ScreenEvent = { t: "event", n: m.n, screen: screen.id, element: m.element };
+  if (m.s !== undefined) out.s = m.s as string;
   const v = m.value;
   switch (el.type) {
     case "cards":
@@ -587,6 +633,7 @@ export type ToPadMessage =
   | { t: "signal"; data: Signal }
   | { t: "haptic"; ms: number | number[] }
   | { t: "host"; online: boolean }
+  | { t: "ack"; n: number; s?: string } // a screen event was received: stop retrying it
   | { t: "kicked" }
   | { t: "full" }
   | { t: "pong" };

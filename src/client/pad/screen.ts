@@ -18,6 +18,69 @@ export type EventValue = ScreenEvent["value"];
 /** How long a live stepper waits for the taps to stop before sending. */
 const STEPPER_SETTLE_MS = 250;
 
+/** What the player has done on the current screen, by element id. */
+export interface ScreenState {
+  picks: Map<string, string[]>;
+  numbers: Map<string, number>;
+  texts: Map<string, string>;
+  sent: Set<string>; // elements that have answered (locked until a new screen)
+}
+
+/** newState is an empty ScreenState. */
+export function newState(): ScreenState {
+  return { picks: new Map(), numbers: new Map(), texts: new Map(), sent: new Set() };
+}
+
+/** reconcileState fits what the player had done to an updated screen with
+ *  the same id: picks of cards or options that are gone are dropped (and
+ *  trimmed to the new pick count), numbers are clamped to the new range,
+ *  text is cut to the new length, and state for elements that no longer
+ *  exist (or changed type) is forgotten. Without this, a confirm button
+ *  could stay enabled for a choice the host has since removed, send an
+ *  answer every host rejects, and lock the player out. */
+export function reconcileState(st: ScreenState, screen: Screen) {
+  const byId = new Map(screen.items.filter((e) => e.id).map((e) => [e.id!, e]));
+  for (const [id, picked] of st.picks) {
+    const e = byId.get(id);
+    if (!e || (e.type !== "cards" && e.type !== "choices")) {
+      st.picks.delete(id);
+      continue;
+    }
+    const allowed = new Set((e.type === "cards" ? e.cards : e.options)?.map((c) => c.id));
+    st.picks.set(id, picked.filter((p) => allowed.has(p)).slice(0, pickCount(e)));
+  }
+  for (const [id, v] of st.numbers) {
+    const e = byId.get(id);
+    if (!e || (e.type !== "stepper" && e.type !== "slider")) st.numbers.delete(id);
+    else st.numbers.set(id, clamp(v, numberRange(e).min, numberRange(e).max));
+  }
+  for (const [id, text] of st.texts) {
+    const e = byId.get(id);
+    if (!e || e.type !== "input") st.texts.delete(id);
+    else st.texts.set(id, [...text].slice(0, inputLength(e)).join(""));
+  }
+  for (const id of st.sent) if (!byId.has(id)) st.sent.delete(id);
+}
+
+/** submitReady reports whether an element's confirm button may be pressed:
+ *  a full pick of cards or options that still exist, some text, or (for
+ *  steppers and sliders) always. */
+export function submitReady(e: ScreenElement, st: ScreenState): boolean {
+  if (st.sent.has(e.id ?? "") || e.disabled) return false;
+  switch (e.type) {
+    case "cards":
+    case "choices": {
+      const allowed = new Set((e.type === "cards" ? e.cards : e.options)?.map((c) => c.id));
+      const picked = st.picks.get(e.id!) ?? [];
+      return picked.length === pickCount(e) && picked.every((p) => allowed.has(p));
+    }
+    case "input":
+      return (st.texts.get(e.id!) ?? "").trim() !== "";
+    default:
+      return true;
+  }
+}
+
 /** A rendered element, kept while its description is unchanged. */
 interface Rendered {
   key: string; // type and id (or position)
@@ -28,10 +91,7 @@ interface Rendered {
 /** ScreenView owns the screen page element. */
 export class ScreenView {
   private screen: Screen | null = null;
-  private picks = new Map<string, string[]>();
-  private numbers = new Map<string, number>();
-  private texts = new Map<string, string>();
-  private sent = new Set<string>(); // elements that have answered (locked until a new screen)
+  private st = newState();
   private rendered: Rendered[] = [];
   private timers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -45,6 +105,7 @@ export class ScreenView {
    *  state; a new id starts afresh. */
   show(screen: Screen) {
     if (screen.id !== this.screen?.id) this.reset();
+    else reconcileState(this.st, screen);
     this.screen = screen;
     this.render();
   }
@@ -62,10 +123,7 @@ export class ScreenView {
   }
 
   private reset() {
-    this.picks.clear();
-    this.numbers.clear();
-    this.texts.clear();
-    this.sent.clear();
+    this.st = newState();
     for (const t of this.timers.values()) clearTimeout(t);
     this.timers.clear();
     this.rendered = [];
@@ -83,7 +141,7 @@ export class ScreenView {
     const old = new Map(this.rendered.map((r) => [r.key, r]));
     const next: Rendered[] = s.items.map((e, i) => {
       const key = `${e.type}:${e.id ?? i}`;
-      const json = JSON.stringify([e, !!s.locked, this.sent.has(e.id ?? "")]);
+      const json = JSON.stringify([e, !!s.locked, this.st.sent.has(e.id ?? "")]);
       const prev = old.get(key);
       return prev && prev.json === json ? prev : { key, json, node: this.build(e) };
     });
@@ -105,7 +163,7 @@ export class ScreenView {
 
   /** inactive reports whether an element can no longer be used. */
   private inactive(e: ScreenElement): boolean {
-    return !!this.screen?.locked || !!e.disabled || this.sent.has(e.id ?? "");
+    return !!this.screen?.locked || !!e.disabled || this.st.sent.has(e.id ?? "");
   }
 
   private build(e: ScreenElement): HTMLElement {
@@ -149,9 +207,9 @@ export class ScreenView {
     const id = e.id!;
     const pick = pickCount(e);
     const off = this.inactive(e);
-    const box = el("div", `scr-${e.type}${off ? " off" : ""}${this.sent.has(id) ? " sent" : ""}`);
+    const box = el("div", `scr-${e.type}${off ? " off" : ""}${this.st.sent.has(id) ? " sent" : ""}`);
     if (pick > 1 && !off) box.append(el("div", "scr-hint", `PICK ${pick}, IN ORDER`));
-    const chosen = this.picks.get(id) ?? [];
+    const chosen = this.st.picks.get(id) ?? [];
     const list = el("div", e.type === "cards" ? "scr-card-grid" : "scr-choice-list");
     const items = e.type === "cards" ? (e.cards ?? []) : (e.options ?? []);
     for (const item of items) {
@@ -181,8 +239,8 @@ export class ScreenView {
       list.append(b);
     }
     box.append(list);
-    if (e.submit) box.append(this.submitButton(e, chosen.length === pick, () => this.answer(e, this.picks.get(id) ?? [])));
-    if (this.sent.has(id)) box.append(el("div", "scr-sent", "LOCKED IN"));
+    if (e.submit) box.append(this.submitButton(e, submitReady(e, this.st), () => this.answer(e, this.st.picks.get(id) ?? [])));
+    if (this.st.sent.has(id)) box.append(el("div", "scr-sent", "LOCKED IN"));
     return box;
   }
 
@@ -193,11 +251,11 @@ export class ScreenView {
     this.tap();
     const id = e.id!;
     const pick = pickCount(e);
-    let chosen = [...(this.picks.get(id) ?? [])];
+    let chosen = [...(this.st.picks.get(id) ?? [])];
     if (chosen.includes(itemId)) chosen = chosen.filter((c) => c !== itemId);
     else if (pick === 1) chosen = [itemId];
     else if (chosen.length < pick) chosen.push(itemId);
-    this.picks.set(id, chosen);
+    this.st.picks.set(id, chosen);
     if (!e.submit && chosen.length === pick) this.answer(e, chosen);
     else this.rerender(id);
   }
@@ -206,14 +264,14 @@ export class ScreenView {
     const id = e.id!;
     const r = numberRange(e);
     const off = this.inactive(e);
-    const value = this.numbers.get(id) ?? r.value;
+    const value = this.st.numbers.get(id) ?? r.value;
     const box = el("div", `scr-stepper${off ? " off" : ""}`);
     const shown = el("output", "scr-value", fmt(value));
     const step = (dir: number) => {
       if (this.inactive(e)) return;
       this.tap();
-      const v = clamp(round((this.numbers.get(id) ?? r.value) + dir * r.step, r.step), r.min, r.max);
-      this.numbers.set(id, v);
+      const v = clamp(round((this.st.numbers.get(id) ?? r.value) + dir * r.step, r.step), r.min, r.max);
+      this.st.numbers.set(id, v);
       shown.textContent = fmt(v);
       minus.disabled = v <= r.min;
       plus.disabled = v >= r.max;
@@ -231,8 +289,8 @@ export class ScreenView {
     const row = el("div", "scr-step-row");
     row.append(minus, shown, plus);
     box.append(row);
-    if (e.submit) box.append(this.submitButton(e, true, () => this.answer(e, this.numbers.get(id) ?? r.value)));
-    if (this.sent.has(id)) box.append(el("div", "scr-sent", "LOCKED IN"));
+    if (e.submit) box.append(this.submitButton(e, true, () => this.answer(e, this.st.numbers.get(id) ?? r.value)));
+    if (this.st.sent.has(id)) box.append(el("div", "scr-sent", "LOCKED IN"));
     return box;
   }
 
@@ -240,7 +298,7 @@ export class ScreenView {
     const id = e.id!;
     const r = numberRange(e);
     const off = this.inactive(e);
-    const value = this.numbers.get(id) ?? r.value;
+    const value = this.st.numbers.get(id) ?? r.value;
     const box = el("div", `scr-slider${off ? " off" : ""}`);
     const shown = el("output", "scr-value", fmt(value));
     const range = el("input", "scr-range") as HTMLInputElement;
@@ -252,7 +310,7 @@ export class ScreenView {
     range.disabled = off;
     range.addEventListener("input", () => {
       const v = Number(range.value);
-      this.numbers.set(id, v);
+      this.st.numbers.set(id, v);
       shown.textContent = fmt(v);
     });
     // Live sliders send when the thumb is let go, not on every pixel.
@@ -260,8 +318,8 @@ export class ScreenView {
       if (!e.submit && !this.inactive(e)) this.send(id, Number(range.value));
     });
     box.append(shown, range);
-    if (e.submit) box.append(this.submitButton(e, true, () => this.answer(e, this.numbers.get(id) ?? r.value)));
-    if (this.sent.has(id)) box.append(el("div", "scr-sent", "LOCKED IN"));
+    if (e.submit) box.append(this.submitButton(e, true, () => this.answer(e, this.st.numbers.get(id) ?? r.value)));
+    if (this.st.sent.has(id)) box.append(el("div", "scr-sent", "LOCKED IN"));
     return box;
   }
 
@@ -275,14 +333,14 @@ export class ScreenView {
     field.placeholder = e.placeholder ?? "";
     field.autocomplete = "off";
     field.enterKeyHint = "send";
-    field.value = this.texts.get(id) ?? "";
+    field.value = this.st.texts.get(id) ?? "";
     field.disabled = off;
-    const go = this.submitButton({ ...e, submit: e.submit ?? "SEND" }, field.value.trim() !== "", () => {
+    const go = this.submitButton({ ...e, submit: e.submit ?? "SEND" }, submitReady(e, this.st), () => {
       const text = [...field.value.trim()].slice(0, inputLength(e)).join("");
       if (text) this.answer(e, text);
     });
     field.addEventListener("input", () => {
-      this.texts.set(id, field.value);
+      this.st.texts.set(id, field.value);
       go.disabled = field.value.trim() === "" || this.inactive(e);
     });
     box.addEventListener("submit", (ev) => {
@@ -290,12 +348,12 @@ export class ScreenView {
       go.click();
     });
     box.append(field, go);
-    if (this.sent.has(id)) box.append(el("div", "scr-sent", "SENT"));
+    if (this.st.sent.has(id)) box.append(el("div", "scr-sent", "SENT"));
     return box;
   }
 
   private button(e: ScreenElement): HTMLElement {
-    const b = el("button", `scr-button${this.sent.has(e.id!) ? " sent" : ""}`, e.label) as HTMLButtonElement;
+    const b = el("button", `scr-button${this.st.sent.has(e.id!) ? " sent" : ""}`, e.label) as HTMLButtonElement;
     b.type = "button";
     b.disabled = this.inactive(e);
     if (e.color) b.style.setProperty("--c", e.color);
@@ -323,7 +381,7 @@ export class ScreenView {
   private answer(e: ScreenElement, value: EventValue) {
     const id = e.id!;
     this.tap();
-    this.sent.add(id);
+    this.st.sent.add(id);
     clearTimeout(this.timers.get(id));
     this.send(id, value);
     this.rerender(id);

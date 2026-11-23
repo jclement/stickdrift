@@ -5,6 +5,9 @@ package stickdrift
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -123,17 +126,67 @@ func TestScreenCheck(t *testing.T) {
 func TestEventWindow(t *testing.T) {
 	var w eventWindow
 	steps := []struct {
+		s  string
 		n  int64
 		ok bool
-	}{{5, true}, {5, false}, {7, true}, {6, true}, {6, false}, {3, true}, {200, true}, {100, false}, {199, true}, {0, false}, {-1, false}}
-	for _, s := range steps {
-		if got := w.accept(s.n); got != s.ok {
-			t.Fatalf("accept(%d) = %v, want %v", s.n, got, s.ok)
+	}{
+		{"a", 5, true}, {"a", 5, false}, {"a", 7, true}, {"a", 6, true}, {"a", 6, false}, {"a", 3, true},
+		{"a", 200, true}, {"a", 100, false}, {"a", 199, true}, {"a", 0, false}, {"a", -1, false},
+		// Widely separated counters, up to the largest the relay accepts.
+		{"a", maxEventN, true}, {"a", 1, false}, {"a", maxEventN, false}, {"a", maxEventN + 1, false},
+		// A new page (session) starts afresh; the old one's copies are refused.
+		{"b", 1, true}, {"b", 1, false}, {"b", 2, true},
+	}
+	for i, st := range steps {
+		if got := w.accept(st.s, st.n); got != st.ok {
+			t.Fatalf("step %d: accept(%q, %d) = %v, want %v", i, st.s, st.n, got, st.ok)
 		}
 	}
-	w.fresh = true
-	if !w.accept(1) {
-		t.Fatal("a rejoined phone restarts its counter")
+}
+
+// TestScreenFixtures holds normalize to the relay's cleanScreen, using the
+// fixtures the TypeScript tests also check (go/testdata/gen-fixtures.ts).
+func TestScreenFixtures(t *testing.T) {
+	b, err := os.ReadFile("testdata/screen-fixtures.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cases []struct {
+		Name string          `json:"name"`
+		Raw  json.RawMessage `json:"raw"`
+		Want json.RawMessage `json:"want"`
+	}
+	if err := json.Unmarshal(b, &cases); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range cases {
+		var raw Screen
+		if err := json.Unmarshal(c.Raw, &raw); err != nil {
+			t.Fatalf("%s: %v", c.Name, err)
+		}
+		got, _ := json.Marshal(raw.normalize())
+		var gotV, wantV any
+		_ = json.Unmarshal(got, &gotV)
+		_ = json.Unmarshal(c.Want, &wantV)
+		if !reflect.DeepEqual(gotV, wantV) {
+			t.Errorf("%s:\n got %s\nwant %s", c.Name, got, c.Want)
+		}
+	}
+}
+
+// TestCheckUsesTheNormalizedScreen: two cards sharing an id with Pick 2 is
+// one card with Pick 1 on the phone, so one pick is the right answer.
+func TestCheckUsesTheNormalizedScreen(t *testing.T) {
+	s := (&Screen{ID: "r", Items: []Element{{Type: ElemCards, ID: "hand", Pick: 2, Cards: []Card{{ID: "c1", Text: "a"}, {ID: "c1", Text: "b"}}}}}).normalize()
+	if _, ok := s.check(wireEvent{T: "event", N: 1, Screen: "r", Element: "hand", Value: json.RawMessage(`["c1"]`)}); !ok {
+		t.Fatal("the answer the phone can give must be accepted")
+	}
+	many := &Screen{ID: "r", Items: []Element{{Type: ElemChoices, ID: "v"}}}
+	for i := range 20 {
+		many.Items[0].Options = append(many.Items[0].Options, Option{ID: fmt.Sprintf("o%d", i), Text: "x"})
+	}
+	if _, ok := many.normalize().check(wireEvent{T: "event", N: 1, Screen: "r", Element: "v", Value: json.RawMessage(`["o18"]`)}); ok {
+		t.Fatal("an option past the cap was never shown, so it can't be answered")
 	}
 }
 
@@ -144,9 +197,10 @@ func TestHostEvents(t *testing.T) {
 	r := newFakeRelay(t)
 	h := startHost(t, r, Options{Look: Look{Layout: "screen", Screen: &Screen{ID: "lobby", Items: []Element{{Type: ElemButton, ID: "ready", Label: "READY"}}}}})
 	p := join(t, r, h, 1)
-	send := func(n int, screen, element, value string) {
-		r.sendJSON(map[string]any{"t": "event", "pad": 1, "n": n, "screen": screen, "element": element, "value": json.RawMessage(value)})
+	sendS := func(session string, n int, screen, element, value string) {
+		r.sendJSON(map[string]any{"t": "event", "pad": 1, "s": session, "n": n, "screen": screen, "element": element, "value": json.RawMessage(value)})
 	}
+	send := func(n int, screen, element, value string) { sendS("page1", n, screen, element, value) }
 	// drain collects events up to one for the marker element, which each
 	// step sends last: relay messages are handled in order, so once it is
 	// here everything before it has been judged.
@@ -217,22 +271,29 @@ func TestHostEvents(t *testing.T) {
 		t.Fatalf("after layout switch = %+v", got)
 	}
 
-	// A rejoin resets the counter: the phone reloaded and starts at 1.
+	// A reconnect between two copies of one event: the late copy must not
+	// count again (the phone's session is unchanged).
 	r.sendJSON(map[string]any{"t": "leave", "pad": 1})
 	waitFor(t, "leave", func() bool { return !p.Connected() })
 	r.sendJSON(map[string]any{"t": "join", "pad": 1, "device": "device-b", "rejoin": true})
 	waitFor(t, "rejoin", func() bool { return p.Connected() })
-	send(1, "lobby", "ready", "null")
+	send(12, "lobby", "ready", "null") // the late copy of 12
+	time.Sleep(100 * time.Millisecond)
+	if got := h.Events(); len(got) != 0 {
+		t.Fatalf("a copy from before the reconnect counted again: %+v", got)
+	}
+	// A reloaded page is a new session, counting from 1 again.
+	sendS("page2", 1, "lobby", "ready", "null")
 	if got := drain("ready"); len(got) != 1 {
-		t.Fatalf("after rejoin = %+v", got)
+		t.Fatalf("new session = %+v", got)
 	}
 
 	// A new phone in the seat (rejoin false) starts from the room's look.
 	h.SetPad(1, Look{Screen: handScreen("r9")})
 	r.sendJSON(map[string]any{"t": "join", "pad": 1, "device": "device-z", "rejoin": false})
 	time.Sleep(50 * time.Millisecond)
-	send(1, "r9", "ready", "null")
-	send(2, "lobby", "ready", "null")
+	sendS("phone-z", 1, "r9", "ready", "null")
+	sendS("phone-z", 2, "lobby", "ready", "null")
 	if got := drain("ready"); len(got) != 1 || got[0].Screen != "lobby" {
 		t.Fatalf("new phone = %+v", got)
 	}
@@ -252,4 +313,15 @@ func TestUnknownRelayMessagesAreIgnored(t *testing.T) {
 	if !p.JustPressed(A) || len(h.Events()) != 0 {
 		t.Fatal("unknown messages must not disturb input")
 	}
+}
+
+// TestHostChecksTheNormalizedScreen: the host judges answers against the
+// screen as the relay passed it on, not as the game wrote it.
+func TestHostChecksTheNormalizedScreen(t *testing.T) {
+	r := newFakeRelay(t)
+	h := startHost(t, r, Options{})
+	join(t, r, h, 0)
+	h.SetPad(0, Look{Layout: "screen", Screen: &Screen{ID: "r", Items: []Element{{Type: ElemCards, ID: "hand", Pick: 2, Cards: []Card{{ID: "c1", Text: "a"}, {ID: "c1", Text: "b"}}}}}})
+	r.sendJSON(map[string]any{"t": "event", "pad": 0, "s": "p", "n": 1, "screen": "r", "element": "hand", "value": []string{"c1"}})
+	waitFor(t, "the one-card answer", func() bool { return len(h.Events()) == 1 })
 }

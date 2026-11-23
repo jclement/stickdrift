@@ -69,7 +69,8 @@ export interface Debug {
 }
 
 const REPEAT_DELAYS = [25, 80]; // ms after a change to resend over P2P
-const MAX_PENDING_EVENTS = 8; // screen answers kept while the relay reconnects
+const MAX_PENDING_EVENTS = 32; // unacknowledged screen answers kept for retrying
+const EVENT_RELAY_RETRY_MS = 3000; // resend an unacknowledged answer over the relay this often
 const TICK_MS = 250; // keepalive, P2P ping and liveness check period
 const RELAY_PING_MS = 1000; // relay round-trip sampling period
 const STALE_MS = 1000; // no echo for this long: stop trusting the channel
@@ -90,7 +91,7 @@ export class Transport {
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
   private last: ArrayBuffer | null = null;
-  private pendingEvents: string[] = []; // screen answers waiting for the relay
+  private pendingEvents = new Map<number, { text: string; relayAt: number }>(); // screen answers awaiting acknowledgement, by n
   private repeatTimers: ReturnType<typeof setTimeout>[] = [];
   private backoff = 250;
   private pingAt = 0;
@@ -128,7 +129,7 @@ export class Transport {
       this.debug.wsState = "open";
       this.changed();
       if (this.last) this.sendFrame(this.last);
-      for (const text of this.pendingEvents.splice(0)) ws.send(text);
+      this.transmitEvents(true); // anything unacknowledged, now that the relay is back
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") return;
@@ -202,28 +203,48 @@ export class Transport {
     }
   }
 
-  /** sendEvent sends a screen answer. Unlike frames, an answer is said
-   *  once and never repeated, and the data channel is unreliable
-   *  (maxRetransmits 0), so it goes by both paths: the channel for speed
-   *  when it is open, the relay always. The host keeps the first copy (the
-   *  event counter n tells them apart). Answers given while the relay is
-   *  reconnecting wait for it, a few at most. */
+  /** sendEvent sends a screen answer and keeps it until it is acknowledged.
+   *  An answer is said once, and the data channel is unreliable
+   *  (maxRetransmits 0), so: send it by every open path, keep it pending,
+   *  resend it while unacknowledged (the channel every tick, the relay
+   *  every few seconds and whenever it reconnects), and drop it when the
+   *  relay or the host acknowledges it. Hosts de-duplicate by (s, n), so
+   *  the extra copies never count twice. */
   sendEvent(m: ScreenEvent) {
     const text = JSON.stringify(m);
     this.debug.events++;
-    let direct = false;
-    if (this.dcOpen()) {
-      try {
-        this.dc!.send(text);
-        direct = true;
-      } catch {
-        // Closing under us; the relay copy still goes.
+    this.pendingEvents.set(m.n, { text, relayAt: 0 });
+    while (this.pendingEvents.size > MAX_PENDING_EVENTS) this.pendingEvents.delete(this.pendingEvents.keys().next().value!);
+    this.transmitEvents(true);
+  }
+
+  /** pendingCount is how many answers await acknowledgement. */
+  get pendingCount(): number {
+    return this.pendingEvents.size;
+  }
+
+  /** transmitEvents (re)sends pending answers: over the channel always,
+   *  over the relay when due (or now, if force). */
+  private transmitEvents(force: boolean) {
+    const now = performance.now();
+    for (const p of this.pendingEvents.values()) {
+      if (this.dcOpen()) {
+        try {
+          this.dc!.send(p.text);
+        } catch {
+          // Closing under us; the relay copy still goes.
+        }
+      }
+      if (this.ws?.readyState === WebSocket.OPEN && (force || now - p.relayAt >= EVENT_RELAY_RETRY_MS)) {
+        this.ws.send(p.text);
+        p.relayAt = now;
       }
     }
-    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(text);
-    // Queue only what the channel didn't carry: after a reconnect the host
-    // resets its de-duplication, so a late relay copy would count twice.
-    else if (!direct) this.pendingEvents = [...this.pendingEvents, text].slice(-MAX_PENDING_EVENTS);
+  }
+
+  /** onAck forgets an acknowledged answer. */
+  private onAck(n: unknown) {
+    if (typeof n === "number") this.pendingEvents.delete(n);
   }
 
   /** sendJSON sends a control message over the relay. */
@@ -247,6 +268,7 @@ export class Transport {
   // ---- Relay messages that steer P2P ----
 
   private onRelayMessage(m: ToPadMessage) {
+    if (m.t === "ack") return this.onAck(m.n);
     if (m.t === "signal") void this.onSignal(m.data);
     if (m.t === "setup") {
       this.debug.hostP2P = m.p2p;
@@ -323,7 +345,7 @@ export class Transport {
       this.fallBack();
       this.scheduleRetry();
     };
-    dc.onmessage = (ev) => this.onChannelMessage(ev.data as ArrayBuffer);
+    dc.onmessage = (ev) => this.onChannelMessage(ev.data as ArrayBuffer | string);
     pc.onicecandidate = (ev) => this.sendJSON({ t: "signal", data: { type: "candidate", candidate: ev.candidate ? ev.candidate.toJSON() : null } satisfies Signal });
     pc.oniceconnectionstatechange = () => this.onIceState(pc);
     void (async () => {
@@ -361,7 +383,17 @@ export class Transport {
     this.changed();
   }
 
-  private onChannelMessage(data: ArrayBuffer) {
+  private onChannelMessage(data: ArrayBuffer | string) {
+    if (typeof data === "string") {
+      // The host acknowledging a screen answer.
+      try {
+        const m = JSON.parse(data) as { t?: string; n?: unknown };
+        if (m.t === "ack") this.onAck(m.n);
+      } catch {
+        // Not for us.
+      }
+      return;
+    }
     const b = new Uint8Array(data);
     if (b[0] !== FRAME_PING || b.length !== 8) return;
     const sent = new DataView(data).getUint32(4, true);
@@ -442,6 +474,7 @@ export class Transport {
 
   /** tick runs every 250 ms: P2P ping and keepalive, liveness, restarts. */
   private tick() {
+    if (this.pendingEvents.size) this.transmitEvents(false);
     if (!this.dcOpen()) return;
     const b = new ArrayBuffer(8);
     const v = new DataView(b);

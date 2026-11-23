@@ -171,7 +171,6 @@ func (p *Pad) join(device string) bool {
 	defer p.mu.Unlock()
 	was := p.connected
 	p.connected, p.fresh = true, true
-	p.events.fresh = true // the phone may have restarted its event counter
 	if device != "" {
 		p.device = device
 	}
@@ -212,9 +211,11 @@ func (p *Pad) setRTT(ms int, via string) {
 	p.rtt, p.via = ms, via
 }
 
-// acceptEvent reports whether screen event n is new from this phone.
-func (p *Pad) acceptEvent(n int64) bool {
+// acceptEvent reports whether screen event (s, n) is new from this seat.
+// The window survives reconnects (a late copy must not count twice); a new
+// phone page brings a new session s and starts it afresh.
+func (p *Pad) acceptEvent(s string, n int64) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.events.accept(n)
+	return p.events.accept(s, n)
 }

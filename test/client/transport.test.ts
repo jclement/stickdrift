@@ -61,21 +61,36 @@ describe("Transport", () => {
     expect(pc.closed).toBe(false);
   });
 
-  it("sends a screen answer by both paths, and holds it while the relay reconnects", async () => {
+  it("sends a screen answer by both paths and forgets it once the relay acknowledges", async () => {
     const { t, ws, dc } = await start();
-    const ev = { t: "event" as const, n: 1, screen: "r1", element: "ready" };
+    const ev = { t: "event" as const, s: "p", n: 1, screen: "r1", element: "ready" };
     t.sendEvent(ev);
     expect(dc.sent).toContainEqual(JSON.stringify(ev));
     expect(ws.messages("event")).toEqual([ev]);
-    dc.closeNow();
-    ws.drop();
-    t.sendEvent({ ...ev, n: 2 });
-    await settle(300);
+    expect(t.pendingCount).toBe(1);
+    ws.json({ t: "ack", n: 1, s: "p" });
+    expect(t.pendingCount).toBe(0);
+  });
+
+  it("retries an answer lost on the channel while the relay is down, until acknowledged", async () => {
+    const { t, ws, dc } = await start();
+    ws.drop(); // relay down; the channel stays open
+    const ev = { t: "event" as const, s: "p", n: 1, screen: "r1", element: "ready" };
+    t.sendEvent(ev);
+    const copies = () => (dc.sent as unknown[]).filter((d) => d === JSON.stringify(ev)).length;
+    expect(copies()).toBe(1); // ...and suppose that packet was lost
+    await settle(600);
+    expect(copies()).toBeGreaterThan(1); // resent on the channel each tick
     const again = FakeSocket.latest();
     expect(again).not.toBe(ws);
     again.open();
-    expect(again.messages("event")).toEqual([{ ...ev, n: 2 }]);
-    expect(t.debug.events).toBe(2);
+    expect(again.messages("event")).toEqual([ev]); // and over the relay once it is back
+    dc.message(JSON.stringify({ t: "ack", n: 1, s: "p" }) as unknown as ArrayBuffer); // the host has it
+    expect(t.pendingCount).toBe(0);
+    const before = copies();
+    await settle(600);
+    expect(copies()).toBe(before); // no more retries
+    expect(t.debug.events).toBe(1);
   });
 
   it("uses the relay while the channel is still connecting", async () => {

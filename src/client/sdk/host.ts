@@ -30,6 +30,7 @@ import {
   ICE_SERVERS,
   PING,
   PONG,
+  EventWindow,
   checkEvent,
   cleanScreen,
   decodeFrame,
@@ -253,6 +254,7 @@ export class StickDriftHost {
   /** kick disconnects a phone and frees its seat. */
   kick(pad: number) {
     this.padLooks.delete(pad); // the relay forgets the seat's look too
+    this.seen.delete(pad);
     this.send({ t: "kick", pad });
   }
 
@@ -385,7 +387,6 @@ export class StickDriftHost {
     const p: Pad = existing ?? { pad: info.pad, device: info.device, connected: false, p2p: false, state: emptyState(), frames: 0, presses: 0, releases: 0 };
     const wasHere = p.connected;
     this.fresh.add(info.pad); // the phone may have restarted its sequence numbers
-    this.seen.set(info.pad, new EventWindow()); // and its event counter
     p.connected = true;
     p.device = info.device;
     this.pads.set(info.pad, p);
@@ -445,9 +446,11 @@ export class StickDriftHost {
     const screen = this.currentScreen(n);
     const ev = checkEvent(screen, raw);
     if (!ev || !screen) return;
+    // One window per seat, kept across reconnects: a late copy from before
+    // a reconnect must not count twice. A new page (session) starts afresh.
     const window = this.seen.get(n) ?? new EventWindow();
     this.seen.set(n, window);
-    if (!window.accept(ev.n)) return;
+    if (!window.accept(ev.s, ev.n)) return;
     const type = screen.items.find((e) => e.id === ev.element)!.type;
     const answer: ScreenAnswer = { pad: n, screen: ev.screen, element: ev.element, type, value: ev.value ?? undefined };
     this.answers.push(answer);
@@ -493,11 +496,24 @@ export class StickDriftHost {
       dc.onmessage = (m) => {
         if (typeof m.data === "string") {
           // A screen answer, straight from the phone; the channel says who.
+          // Acknowledge it whatever we make of it, so the phone stops
+          // retrying (the channel loses packets; the phone resends until
+          // the relay or we say we have it).
+          let ev: { t?: unknown; n?: unknown; s?: unknown };
           try {
-            this.onEvent(pad, JSON.parse(m.data));
+            ev = JSON.parse(m.data);
           } catch {
-            // Not JSON: ignore it.
+            return;
           }
+          if (ev?.t !== "event") return;
+          if (typeof ev.n === "number") {
+            try {
+              dc.send(JSON.stringify({ t: "ack", n: ev.n, ...(typeof ev.s === "string" ? { s: ev.s } : {}) }));
+            } catch {
+              // Channel closing; the relay copy gets acknowledged instead.
+            }
+          }
+          this.onEvent(pad, ev);
           return;
         }
         const data = m.data as ArrayBuffer;
@@ -551,29 +567,6 @@ export class StickDriftHost {
   private emit<K extends keyof HostEvents>(ev: K, ...args: Parameters<HostEvents[K]>) {
     const list = (this.listeners[ev] ?? []) as unknown as ((...a: unknown[]) => void)[];
     for (const fn of [...list]) fn(...args);
-  }
-}
-
-/** EventWindow de-duplicates one phone's event counters: the highest seen
- *  and which of the 64 before it have been (events may arrive twice, and out
- *  of order over the unordered data channel). */
-class EventWindow {
-  private high = 0;
-  private bits = 0n; // bit i: high - i seen
-
-  accept(n: number): boolean {
-    if (n <= 0) return false;
-    if (this.high === 0 || n > this.high) {
-      const shift = this.high === 0 ? 64 : n - this.high;
-      this.bits = shift >= 64 ? 1n : ((this.bits << BigInt(shift)) | 1n) & 0xffffffffffffffffn;
-      this.high = n;
-      return true;
-    }
-    const back = this.high - n;
-    const bit = 1n << BigInt(back);
-    if (back >= 64 || this.bits & bit) return false;
-    this.bits |= bit;
-    return true;
   }
 }
 

@@ -4,7 +4,8 @@
 // what they saw before, and never an event.
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { Button, LAYOUTS, checkEvent, cleanScreen, decodeFrame, emptyState, encodeFrame, randomCode, type Screen } from "../src/shared/protocol";
+import { Button, EventWindow, LAYOUTS, MAX_EVENT_N, checkEvent, cleanScreen, decodeFrame, emptyState, encodeFrame, randomCode, type Screen } from "../src/shared/protocol";
+import fixtures from "../go/testdata/screen-fixtures.json";
 
 const KEY = "0123456789abcdef0123";
 const PNG = "data:image/png;base64,iVBORw0KGgo=";
@@ -118,6 +119,30 @@ describe("cleanScreen", () => {
   });
 });
 
+describe("cleanScreen fixtures shared with Go", () => {
+  // go/screen_test.go TestScreenFixtures checks Go's normalize against the
+  // same file, so a game is held to exactly what its players were shown.
+  for (const f of fixtures as { name: string; raw: unknown; want: unknown }[]) {
+    it(f.name, () => expect(cleanScreen(f.raw)).toEqual(f.want));
+  }
+});
+
+describe("EventWindow", () => {
+  it("handles counters far apart without building huge masks", () => {
+    const w = new EventWindow();
+    expect(w.accept("a", MAX_EVENT_N)).toBe(true);
+    expect(w.accept("a", 1)).toBe(false); // 2^31 below: once a giant BigInt shift
+    expect(w.accept("a", MAX_EVENT_N)).toBe(false);
+    expect(w.accept("a", MAX_EVENT_N + 1)).toBe(false);
+    expect(w.accept("a", MAX_EVENT_N - 63)).toBe(true);
+    expect(w.accept("a", MAX_EVENT_N - 64)).toBe(false);
+  });
+  it("keeps de-duplicating within a session and restarts for a new one", () => {
+    const w = new EventWindow();
+    expect([w.accept("p1", 12), w.accept("p1", 12), w.accept("p1", 11), w.accept("p2", 1), w.accept("p2", 1)]).toEqual([true, false, true, true, false]);
+  });
+});
+
 describe("checkEvent", () => {
   const s = cleanScreen(hand)!;
   const ev = (element: string, value?: unknown, extra = {}) => ({ t: "event", n: 1, screen: "r1", element, value, ...extra });
@@ -180,6 +205,18 @@ describe("relay: screens", () => {
     pad.send({ t: "event", n: 6, screen: "r2", element: "next" });
     pad.ws.send(encodeFrame({ ...emptyState(), seq: 1, buttons: 1 << Button.A }));
     expect(decodeFrame(await host.frame())!.state.buttons).toBe(1 << Button.A);
+    await host.none("event");
+  });
+
+  it("acknowledges every event it receives, forwarded or not, so the phone stops retrying", async () => {
+    const { host, pad } = await room("phone-screen06");
+    host.send({ t: "pad", pad: 0, layout: "screen", screen: hand });
+    await pad.next("setup");
+    pad.send({ t: "event", s: "page1", n: 1, screen: "r1", element: "ready" });
+    expect(await pad.next("ack")).toEqual({ t: "ack", n: 1, s: "page1" });
+    expect(await host.next("event")).toMatchObject({ s: "page1", n: 1, element: "ready" });
+    pad.send({ t: "event", s: "page1", n: 2, screen: "stale", element: "ready" });
+    expect(await pad.next("ack")).toEqual({ t: "ack", n: 2, s: "page1" });
     await host.none("event");
   });
 

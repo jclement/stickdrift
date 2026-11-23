@@ -1,0 +1,597 @@
+[
+ {
+  "name": "duplicate card ids shrink the pick",
+  "raw": {
+   "id": "dup",
+   "items": [
+    {
+     "type": "cards",
+     "id": "hand",
+     "pick": 2,
+     "submit": "PLAY",
+     "cards": [
+      {
+       "id": "c1",
+       "text": "one"
+      },
+      {
+       "id": "c1",
+       "text": "again"
+      }
+     ]
+    }
+   ]
+  },
+  "want": {
+   "id": "dup",
+   "items": [
+    {
+     "type": "cards",
+     "id": "hand",
+     "cards": [
+      {
+       "id": "c1",
+       "text": "one"
+      }
+     ],
+     "pick": 1,
+     "submit": "PLAY"
+    }
+   ]
+  }
+ },
+ {
+  "name": "lists, text and picks are cut to their limits",
+  "raw": {
+   "id": "caps",
+   "items": [
+    {
+     "type": "heading",
+     "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "type": "text",
+     "text": "tab\there\u0007bell\nnewlinexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "type": "cards",
+     "id": "big",
+     "pick": 9,
+     "cards": [
+      {
+       "id": "k0",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k1",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k2",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k3",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k4",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k5",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k6",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k7",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k8",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k9",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k10",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k11",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k12",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k13",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+     ]
+    },
+    {
+     "type": "choices",
+     "id": "who",
+     "pick": 1,
+     "options": [
+      {
+       "id": "a",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "pad": 2,
+       "color": "red"
+      },
+      {
+       "id": "a",
+       "text": "dup"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "b",
+       "text": "B",
+       "pad": 99,
+       "color": "#3a86ff"
+      }
+     ]
+    }
+   ]
+  },
+  "want": {
+   "id": "caps",
+   "items": [
+    {
+     "type": "heading",
+     "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "type": "text",
+     "text": "tabherebell\nnewlinexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "type": "cards",
+     "id": "big",
+     "cards": [
+      {
+       "id": "k0",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k1",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k2",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k3",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k4",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k5",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k6",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k7",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k8",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k9",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k10",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      {
+       "id": "k11",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+     ],
+     "pick": 3
+    },
+    {
+     "type": "choices",
+     "id": "who",
+     "options": [
+      {
+       "id": "a",
+       "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+       "pad": 2
+      },
+      {
+       "id": "b",
+       "text": "B",
+       "color": "#3a86ff"
+      }
+     ],
+     "pick": 1
+    }
+   ]
+  }
+ },
+ {
+  "name": "numbers, inputs, buttons and status",
+  "raw": {
+   "id": "misc",
+   "items": [
+    {
+     "type": "stepper",
+     "id": "s",
+     "min": 0,
+     "max": 0.5,
+     "step": 2,
+     "value": 9
+    },
+    {
+     "type": "slider",
+     "id": "sl",
+     "min": 10,
+     "max": -10,
+     "step": 0,
+     "value": 3,
+     "submit": "SET"
+    },
+    {
+     "type": "input",
+     "id": "i",
+     "maxLength": 200,
+     "placeholder": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "type": "input",
+     "id": "j",
+     "maxLength": 0
+    },
+    {
+     "type": "button",
+     "id": "b"
+    },
+    {
+     "type": "button",
+     "id": "c",
+     "label": "GO",
+     "color": "#38d996"
+    },
+    {
+     "type": "status",
+     "text": "",
+     "seconds": 5000
+    },
+    {
+     "type": "status",
+     "text": ""
+    },
+    {
+     "type": "status",
+     "text": "half",
+     "progress": 0.5
+    },
+    {
+     "type": "mystery",
+     "id": "m"
+    },
+    {
+     "type": "button",
+     "id": "b",
+     "label": "duplicate id"
+    },
+    {
+     "type": "button",
+     "label": "no id"
+    }
+   ]
+  },
+  "want": {
+   "id": "misc",
+   "items": [
+    {
+     "type": "stepper",
+     "id": "s",
+     "min": 0,
+     "max": 0.5,
+     "step": 0.5,
+     "value": 0.5
+    },
+    {
+     "type": "slider",
+     "id": "sl",
+     "min": -10,
+     "max": 10,
+     "step": 1,
+     "value": 3,
+     "submit": "SET"
+    },
+    {
+     "type": "input",
+     "id": "i",
+     "maxLength": 80,
+     "placeholder": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+     "type": "input",
+     "id": "j",
+     "maxLength": 80
+    },
+    {
+     "type": "button",
+     "id": "b",
+     "label": "OK"
+    },
+    {
+     "type": "button",
+     "id": "c",
+     "label": "GO",
+     "color": "#38d996"
+    },
+    {
+     "type": "status",
+     "seconds": 3600
+    },
+    {
+     "type": "status",
+     "text": "half",
+     "progress": 0.5
+    }
+   ]
+  }
+ },
+ {
+  "name": "items past 24 are dropped",
+  "raw": {
+   "id": "many",
+   "items": [
+    {
+     "type": "text",
+     "text": "line 0"
+    },
+    {
+     "type": "text",
+     "text": "line 1"
+    },
+    {
+     "type": "text",
+     "text": "line 2"
+    },
+    {
+     "type": "text",
+     "text": "line 3"
+    },
+    {
+     "type": "text",
+     "text": "line 4"
+    },
+    {
+     "type": "text",
+     "text": "line 5"
+    },
+    {
+     "type": "text",
+     "text": "line 6"
+    },
+    {
+     "type": "text",
+     "text": "line 7"
+    },
+    {
+     "type": "text",
+     "text": "line 8"
+    },
+    {
+     "type": "text",
+     "text": "line 9"
+    },
+    {
+     "type": "text",
+     "text": "line 10"
+    },
+    {
+     "type": "text",
+     "text": "line 11"
+    },
+    {
+     "type": "text",
+     "text": "line 12"
+    },
+    {
+     "type": "text",
+     "text": "line 13"
+    },
+    {
+     "type": "text",
+     "text": "line 14"
+    },
+    {
+     "type": "text",
+     "text": "line 15"
+    },
+    {
+     "type": "text",
+     "text": "line 16"
+    },
+    {
+     "type": "text",
+     "text": "line 17"
+    },
+    {
+     "type": "text",
+     "text": "line 18"
+    },
+    {
+     "type": "text",
+     "text": "line 19"
+    },
+    {
+     "type": "text",
+     "text": "line 20"
+    },
+    {
+     "type": "text",
+     "text": "line 21"
+    },
+    {
+     "type": "text",
+     "text": "line 22"
+    },
+    {
+     "type": "text",
+     "text": "line 23"
+    },
+    {
+     "type": "text",
+     "text": "line 24"
+    },
+    {
+     "type": "text",
+     "text": "line 25"
+    },
+    {
+     "type": "text",
+     "text": "line 26"
+    },
+    {
+     "type": "text",
+     "text": "line 27"
+    },
+    {
+     "type": "text",
+     "text": "line 28"
+    },
+    {
+     "type": "text",
+     "text": "line 29"
+    }
+   ]
+  },
+  "want": {
+   "id": "many",
+   "items": [
+    {
+     "type": "text",
+     "text": "line 0"
+    },
+    {
+     "type": "text",
+     "text": "line 1"
+    },
+    {
+     "type": "text",
+     "text": "line 2"
+    },
+    {
+     "type": "text",
+     "text": "line 3"
+    },
+    {
+     "type": "text",
+     "text": "line 4"
+    },
+    {
+     "type": "text",
+     "text": "line 5"
+    },
+    {
+     "type": "text",
+     "text": "line 6"
+    },
+    {
+     "type": "text",
+     "text": "line 7"
+    },
+    {
+     "type": "text",
+     "text": "line 8"
+    },
+    {
+     "type": "text",
+     "text": "line 9"
+    },
+    {
+     "type": "text",
+     "text": "line 10"
+    },
+    {
+     "type": "text",
+     "text": "line 11"
+    },
+    {
+     "type": "text",
+     "text": "line 12"
+    },
+    {
+     "type": "text",
+     "text": "line 13"
+    },
+    {
+     "type": "text",
+     "text": "line 14"
+    },
+    {
+     "type": "text",
+     "text": "line 15"
+    },
+    {
+     "type": "text",
+     "text": "line 16"
+    },
+    {
+     "type": "text",
+     "text": "line 17"
+    },
+    {
+     "type": "text",
+     "text": "line 18"
+    },
+    {
+     "type": "text",
+     "text": "line 19"
+    },
+    {
+     "type": "text",
+     "text": "line 20"
+    },
+    {
+     "type": "text",
+     "text": "line 21"
+    },
+    {
+     "type": "text",
+     "text": "line 22"
+    },
+    {
+     "type": "text",
+     "text": "line 23"
+    }
+   ]
+  }
+ },
+ {
+  "name": "a bad screen id refuses the screen",
+  "raw": {
+   "id": "no spaces",
+   "items": []
+  },
+  "want": null
+ }
+]

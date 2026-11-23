@@ -213,7 +213,7 @@ export class Session extends DurableObject<Env> {
         this.relayInput(a.pad, msg);
         return;
       }
-      this.padText(a, msg);
+      this.padText(ws, a, msg);
       return;
     }
     if (typeof msg === "string" && msg.length <= MAX_TEXT_BYTES) await this.hostText(msg);
@@ -228,7 +228,7 @@ export class Session extends DurableObject<Env> {
     for (const host of this.hosts()) host.send(out);
   }
 
-  private padText(a: Extract<Attachment, { role: "pad" }>, msg: string) {
+  private padText(ws: WebSocket, a: Extract<Attachment, { role: "pad" }>, msg: string) {
     if (msg.length > MAX_TEXT_BYTES) return;
     let m: { t?: string; ms?: number; via?: string; data?: Signal; screen?: unknown };
     try {
@@ -240,9 +240,15 @@ export class Session extends DurableObject<Env> {
       this.toHost({ t: "rtt", pad: a.pad, ms: Math.round(m.ms), via: m.via === "p2p" ? "p2p" : "relay" });
     }
     if (m.t === "signal" && m.data && typeof m.data === "object") this.toHost({ t: "signal", pad: a.pad, data: m.data });
-    if (m.t === "event" && this.room) {
+    if (m.t === "event") {
+      // Acknowledge receipt, forwarded or not, so the phone stops retrying:
+      // from here to the host is a reliable socket, and a stale answer will
+      // never become current.
+      const n = (m as { n?: unknown }).n;
+      const s = (m as { s?: unknown }).s;
+      if (typeof n === "number" && Number.isInteger(n) && n > 0) this.sendJSON(ws, { t: "ack", n, ...(typeof s === "string" ? { s: s.slice(0, 32) } : {}) } satisfies ToPadMessage);
       // Only an answer to the screen this pad shows now, with a clean value.
-      const ev = checkEvent(this.screenOf(this.room, a.pad), m);
+      const ev = this.room ? checkEvent(this.screenOf(this.room, a.pad), m) : null;
       if (ev) this.toHost({ ...ev, pad: a.pad });
     }
   }
