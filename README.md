@@ -17,8 +17,9 @@ Live at **https://stickdrift.net** (try `/demo`). See it in a real game:
 **https://snitch.stickdrift.net** (SNITCH!, a heist with a secret traitor),
 **https://dontpressit.stickdrift.net** (DON'T PRESS IT!, one giant button and a smug host),
 **https://allin.stickdrift.net** (ALL IN!, cheeky cartoon strip poker),
-**https://poopdeck.stickdrift.net** (POOP DECK!, pirate crews sharing one ship) and
-**https://marblemayhem.stickdrift.net** (MARBLE MAYHEM!, tilt-to-roll marbles).
+**https://poopdeck.stickdrift.net** (POOP DECK!, pirate crews sharing one ship),
+**https://marblemayhem.stickdrift.net** (MARBLE MAYHEM!, tilt-to-roll marbles) and
+**https://badtaste.stickdrift.net** (BAD TASTE!, a fill-in-the-blank card game on the screen layout).
 
 ## Quick start
 
