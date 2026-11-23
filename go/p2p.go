@@ -189,7 +189,8 @@ func (h *Host) answer(n int, sdp string) error {
 }
 
 // wireChannel routes a phone's data channel: pings are echoed so the phone
-// can time the round trip, everything else is an input frame.
+// can time the round trip, text is a screen event, everything else is an
+// input frame.
 func (h *Host) wireChannel(n int, pr *peer, dc *webrtc.DataChannel) {
 	setOpen := func(open bool) {
 		pr.mu.Lock()
@@ -200,6 +201,14 @@ func (h *Host) wireChannel(n int, pr *peer, dc *webrtc.DataChannel) {
 	dc.OnOpen(func() { setOpen(true) })
 	dc.OnClose(func() { setOpen(false) })
 	dc.OnMessage(func(msg webrtc.DataChannelMessage) {
+		if msg.IsString {
+			// A screen event (JSON text); the channel says which pad.
+			var w wireEvent
+			if json.Unmarshal(msg.Data, &w) == nil {
+				h.onEvent(n, w)
+			}
+			return
+		}
 		if len(msg.Data) == pingSize && msg.Data[0] == framePing {
 			_ = dc.Send(msg.Data)
 			return

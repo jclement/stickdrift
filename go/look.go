@@ -1,5 +1,5 @@
 // Looks: what a host can set on a phone (layout, colours, labels, theme,
-// custom controls, avatar, banner). The relay validates everything again, so
+// custom controls, avatar, banner, screen). The relay validates everything again, so
 // these types are for convenience and documentation, not security.
 
 package stickdrift
@@ -26,14 +26,17 @@ type Look struct {
 	Custom    *CustomLayout     `json:"custom,omitempty"` // controls for Layout "custom"
 	Avatar    string            `json:"avatar,omitempty"` // PNG data URL ≤ 24 KB; see AvatarPNG
 	Banner    string            `json:"banner,omitempty"` // big faded text behind the controls
+	Screen    *Screen           `json:"screen,omitempty"` // the page for Layout "screen"; see Screen
 
 	// Clear lists text fields to send as "" (blanking them on the phone):
 	// any of "label", "message", "banner". Omitempty can't express that.
+	// "screen" removes a pad's own screen so it shows the room's default
+	// again (sent as null).
 	Clear []string `json:"-"`
 }
 
 // clearable are the text fields Clear may name.
-var clearable = map[string]bool{"label": true, "message": true, "banner": true}
+var clearable = map[string]bool{"label": true, "message": true, "banner": true, "screen": true}
 
 // MarshalJSON writes the look, adding an empty string for every Clear field.
 func (l Look) MarshalJSON() ([]byte, error) {
@@ -48,7 +51,11 @@ func (l Look) MarshalJSON() ([]byte, error) {
 	}
 	for _, name := range l.Clear {
 		if !clearable[name] {
-			return nil, fmt.Errorf("look: cannot clear %q (only label, message, banner)", name)
+			return nil, fmt.Errorf("look: cannot clear %q (only label, message, banner, screen)", name)
+		}
+		if name == "screen" {
+			fields[name] = nil
+			continue
 		}
 		fields[name] = ""
 	}
@@ -58,8 +65,8 @@ func (l Look) MarshalJSON() ([]byte, error) {
 // Bool returns a pointer to v, for Look.Swap and Look.Diagonals.
 func Bool(v bool) *bool { return &v }
 
-// Layouts are the built-in layout ids, plus "custom".
-var Layouts = []string{"dpad-ab", "stick-ab", "arcade", "gamepad", "twin-stick", "buzzer", "quiz", "paddle", "tilt", "touchpad", "custom"}
+// Layouts are the built-in layout ids, plus "custom" and "screen".
+var Layouts = []string{"dpad-ab", "stick-ab", "arcade", "gamepad", "twin-stick", "buzzer", "quiz", "paddle", "tilt", "touchpad", "custom", "screen"}
 
 // Theme is a styling preset. Only presets and hex colours: a host can
 // restyle players' phones but never inject CSS or markup.

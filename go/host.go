@@ -120,13 +120,18 @@ type Host struct {
 	look    Look
 	open    bool
 	pads    map[int]*Pad
-	joined  []*Pad // pads that arrived since the last Joined
-	left    []*Pad // pads that went since the last Left
-	conn    *websocket.Conn
-	started bool
-	cancel  context.CancelFunc
-	done    chan struct{}
-	ready   chan struct{} // closed at the first welcome
+	joined  []*Pad  // pads that arrived since the last Joined
+	left    []*Pad  // pads that went since the last Left
+	events  []Event // screen answers since the last Events
+	// padLooks is the layout and screen this host last gave each pad of its
+	// own (SetPad), mirroring how the relay merges a pad's look over the
+	// room's. It decides which screen a pad's events must answer.
+	padLooks map[int]*padLook
+	conn     *websocket.Conn
+	started  bool
+	cancel   context.CancelFunc
+	done     chan struct{}
+	ready    chan struct{} // closed at the first welcome
 }
 
 // NewHost prepares a room. Nothing touches the network until Start.
@@ -154,9 +159,10 @@ func NewHost(opts Options) *Host {
 		log:       logger,
 		code:      opts.Code,
 		key:       opts.Key,
-		look:      opts.Look,
+		look:      cloneLook(opts.Look),
 		open:      true,
 		pads:      map[int]*Pad{},
+		padLooks:  map[int]*padLook{},
 		ready:     make(chan struct{}),
 	}
 	if h.code == "" {
@@ -285,6 +291,23 @@ func (h *Host) Left() []*Pad {
 	return out
 }
 
+// Events returns the screen answers that arrived since the last call, in
+// arrival order. Only events that answer a pad's current screen get here
+// (see Screen and Event); call it once per frame, like Joined.
+//
+//	for _, ev := range host.Events() {
+//		if ev.Element == "hand" {
+//			play(ev.Pad.Number(), ev.Picks)
+//		}
+//	}
+func (h *Host) Events() []Event {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := h.events
+	h.events = nil
+	return out
+}
+
 // ---- Commands ----
 //
 // Commands are best effort: sent if the relay is connected, dropped (and
@@ -294,7 +317,7 @@ func (h *Host) Left() []*Pad {
 // SetLook changes the default look for every pad.
 func (h *Host) SetLook(look Look) {
 	h.mu.Lock()
-	h.look = look
+	h.look = cloneLook(look)
 	h.mu.Unlock()
 	h.send(map[string]any{"t": "config", "look": look})
 }
@@ -309,6 +332,7 @@ func (h *Host) SetPad(n int, look Look) {
 	var fields map[string]any
 	_ = json.Unmarshal(b, &fields)
 	fields["t"], fields["pad"] = "pad", n
+	h.rememberPadLook(n, look)
 	h.send(fields)
 }
 
@@ -335,6 +359,9 @@ func (h *Host) Haptic(n int, ms ...int) {
 
 // Kick disconnects a phone and frees its seat.
 func (h *Host) Kick(n int) {
+	h.mu.Lock()
+	delete(h.padLooks, n) // the relay forgets the seat's look too
+	h.mu.Unlock()
 	h.send(map[string]any{"t": "kick", "pad": n})
 }
 
@@ -497,6 +524,7 @@ type relayMessage struct {
 	Message string          `json:"message"`
 	Data    json.RawMessage `json:"data"`
 	Pads    []padInfo       `json:"pads"`
+	Rejoin  bool            `json:"rejoin"`
 }
 
 // padInfo is a seated phone in a welcome.
@@ -526,6 +554,13 @@ func (h *Host) onMessage(data []byte) bool {
 		h.onWelcome(m)
 		return true
 	case "join":
+		if !m.Rejoin {
+			// A new phone in this seat starts from the room's look, as on
+			// the relay; any screen we gave the seat's last phone is gone.
+			h.mu.Lock()
+			delete(h.padLooks, m.Pad)
+			h.mu.Unlock()
+		}
 		h.onJoin(m.Pad, m.Device)
 	case "leave":
 		h.onLeave(m.Pad)
@@ -535,6 +570,11 @@ func (h *Host) onMessage(data []byte) bool {
 		}
 	case "signal":
 		h.onSignal(m.Pad, m.Data)
+	case "event":
+		var w wireEvent
+		if json.Unmarshal(data, &w) == nil {
+			h.onEvent(w.Pad, w)
+		}
 	case "error":
 		h.mu.Lock()
 		h.lastErr = fmt.Errorf("relay: %s: %s", m.Code, m.Message)
@@ -618,4 +658,95 @@ func wsOrigin(origin string) string {
 		return "ws://" + strings.TrimPrefix(origin, "http://")
 	}
 	return origin
+}
+
+// ---- Screens ----
+
+// padLook is the part of a pad's own look that decides its screen.
+type padLook struct {
+	layout string
+	screen *Screen
+}
+
+// rememberPadLook records the layout and screen a SetPad gives pad n.
+func (h *Host) rememberPadLook(n int, look Look) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	pl := h.padLooks[n]
+	if pl == nil {
+		pl = &padLook{}
+		h.padLooks[n] = pl
+	}
+	if look.Layout != "" {
+		pl.layout = look.Layout
+	}
+	if look.Screen != nil {
+		pl.screen = cloneScreen(look.Screen)
+	}
+	for _, f := range look.Clear {
+		if f == "screen" {
+			pl.screen = nil
+		}
+	}
+}
+
+// currentScreen is the screen pad n shows now: its own if it has one, else
+// the room's, and only while its layout is "screen". Call with h.mu held.
+func (h *Host) currentScreen(n int) *Screen {
+	layout, screen := h.look.Layout, h.look.Screen
+	if pl := h.padLooks[n]; pl != nil {
+		if pl.layout != "" {
+			layout = pl.layout
+		}
+		if pl.screen != nil {
+			screen = pl.screen
+		}
+	}
+	if layout != "screen" {
+		return nil
+	}
+	return screen
+}
+
+// onEvent queues a phone's screen answer if it answers that pad's current
+// screen and hasn't been seen (events can arrive over both paths).
+func (h *Host) onEvent(n int, w wireEvent) {
+	p := h.Pad(n)
+	if p == nil || w.T != "event" {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	ev, ok := h.currentScreen(n).check(w)
+	if !ok {
+		h.log.Debug("stickdrift: dropped screen event", "pad", n, "screen", w.Screen, "element", w.Element)
+		return
+	}
+	if !p.acceptEvent(w.N) {
+		return
+	}
+	ev.Pad = p
+	h.events = append(h.events, ev)
+}
+
+// cloneLook copies a look's screen, so a game editing its Screen after
+// sending it can't change what events are checked against.
+func cloneLook(l Look) Look {
+	l.Screen = cloneScreen(l.Screen)
+	return l
+}
+
+// cloneScreen deep-copies a screen.
+func cloneScreen(s *Screen) *Screen {
+	if s == nil {
+		return nil
+	}
+	c := *s
+	c.Items = make([]Element, len(s.Items))
+	for i, e := range s.Items {
+		e.Cards = append([]Card(nil), e.Cards...)
+		e.Options = append([]Option(nil), e.Options...)
+		c.Items[i] = e
+	}
+	return &c
 }

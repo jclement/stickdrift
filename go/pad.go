@@ -23,10 +23,11 @@ type Pad struct {
 	seq       uint16 // last applied frame sequence
 	fresh     bool   // the next frame resets sequencing ((re)joined)
 	connected bool
-	p2p       bool   // a direct WebRTC channel to this phone is open
-	rtt       int    // the phone's reported round trip, ms
-	via       string // the path the phone reports using: "p2p" or "relay"
-	frames    uint64 // input frames applied
+	p2p       bool        // a direct WebRTC channel to this phone is open
+	rtt       int         // the phone's reported round trip, ms
+	via       string      // the path the phone reports using: "p2p" or "relay"
+	frames    uint64      // input frames applied
+	events    eventWindow // screen events seen, for de-duplication
 
 	// Game side, published by Tick.
 	view         State
@@ -170,6 +171,7 @@ func (p *Pad) join(device string) bool {
 	defer p.mu.Unlock()
 	was := p.connected
 	p.connected, p.fresh = true, true
+	p.events.fresh = true // the phone may have restarted its event counter
 	if device != "" {
 		p.device = device
 	}
@@ -208,4 +210,11 @@ func (p *Pad) setRTT(ms int, via string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.rtt, p.via = ms, via
+}
+
+// acceptEvent reports whether screen event n is new from this phone.
+func (p *Pad) acceptEvent(n int64) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.events.accept(n)
 }

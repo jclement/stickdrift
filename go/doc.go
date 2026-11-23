@@ -27,5 +27,10 @@
 // and every method is safe to call from any goroutine. Pad state changes
 // only at Tick, so reads within one frame agree with each other.
 //
+// For word, card and voting games, Layout "screen" turns the phone into a
+// small scrolling page instead of a game pad: send a Screen in a Look
+// (per pad with SetPad, for private hands) and read the players' answers
+// with Host.Events. See Screen and Event.
+//
 // The wire protocol is PROTOCOL.md in the repository.
 package stickdrift
