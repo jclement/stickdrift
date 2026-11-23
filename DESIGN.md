@@ -66,7 +66,11 @@ phone (pad page) ──wss──▶ Worker ──▶ Session DO (one per room co
     and upright), and the page counter-rotates with a CSS transform when the
     OS rotates, instead of relaying out or asking the player to turn. Other
     layouts aren't tilted in play, so a rotation there is a real change of
-    grip and they still follow the OS (`src/client/pad/tilt.ts`).
+    grip and they still follow the OS (`src/client/pad/tilt.ts`). Pinning and
+    the orientation lock live in `pin.ts`, apart from the DOM: a rotation
+    arrives as resize and angle events in either order, so pinning retries on
+    every event and the watchdog and waits until angle and viewport agree,
+    and the lock is taken from the layout just built.
 
 ## Known limitations
 

@@ -14,7 +14,8 @@ import { haptic, setupHaptics } from "./haptics";
 import { build, swapPartner, type Built } from "./layouts";
 import type { Control } from "./controls";
 import { ScreenView, type EventValue } from "./screen";
-import { isLandscape, pinRotation, TiltSession, unpinPoint, upFromEuler, type Pin, type Tilt, type Vec3 } from "./tilt";
+import { unpinPoint, upFromEuler, type Tilt, type Vec3 } from "./tilt";
+import { PinKeeper, type LockAction, type ScreenState } from "./pin";
 
 // ---- Elements ----
 
@@ -258,7 +259,7 @@ function relayout() {
   input.releaseAll();
   // Only the tilt controller is pinned; anything else lays out for the
   // screen as the OS shows it, exactly as before.
-  if (currentLayout() !== "tilt") unpinPicture();
+  if (keeper.beforeBuild(currentLayout() === "tilt")) clearPinStyle();
   const screenMode = currentLayout() === "screen";
   document.body.classList.toggle("screen-mode", screenMode);
   if (screenMode) {
@@ -270,18 +271,20 @@ function relayout() {
     rotateScreen.classList.add("hidden");
     if (look.screen) screenView.show(look.screen);
     else showWaitingScreen();
+    void applyLock(keeper.afterBuild(false, false, screenState()));
     return;
   }
   screenView.clear();
   built = build(currentLayout(), input, surface, look);
   builtW = surface.clientWidth;
   builtH = surface.clientHeight;
-  if (built.usesTilt && !document.body.classList.contains("preview")) {
-    pinPicture();
-    startTilt();
-  }
+  const tilting = built.usesTilt && !document.body.classList.contains("preview");
+  // Orientation policy follows the layout just built, not the one replaced.
+  void applyLock(keeper.afterBuild(tilting, built.needsLandscape, screenState()));
+  if (keeper.pinned) drawPin();
+  if (tilting) startTilt();
   const portrait = innerHeight > innerWidth;
-  rotateScreen.classList.toggle("hidden", !(built.needsLandscape && portrait) || tilt.pinned !== null);
+  rotateScreen.classList.toggle("hidden", !(built.needsLandscape && portrait) || keeper.pinned);
 }
 
 /** showWaitingScreen fills a screen layout the game hasn't described yet. */
@@ -326,8 +329,9 @@ function controlAt(x: number, y: number, only?: (c: Control) => boolean): Contro
 /** at is where a pointer lands on the controls: the viewport position, or,
  *  while the picture is pinned and turned, the spot on the turned picture. */
 function at(e: PointerEvent): [number, number] {
+  const pin = keeper.pin;
   if (!pin) return [e.clientX, e.clientY];
-  return unpinPoint(pin, e.clientX, e.clientY, pinW, pinH, innerWidth, innerHeight);
+  return unpinPoint(pin, e.clientX, e.clientY, keeper.w, keeper.h, innerWidth, innerHeight);
 }
 
 surface.addEventListener("pointerdown", (e) => {
@@ -426,14 +430,10 @@ function steerFrom(up: Vec3) {
 // prompt never appears. Other layouts aren't tilted in play, so a rotation
 // there means the player really turned the phone; they follow the OS.
 
-const tilt = new TiltSession();
+const keeper = new PinKeeper();
+const tilt = keeper.session;
 let lastUp: Vec3 | null = null;
 let lastTilt: Tilt = { steer: 0, pitch: 0 };
-/** The current counter-rotation, while pinned. */
-let pin: Pin | null = null;
-/** The size the pinned picture was laid out at. */
-let pinW = 0;
-let pinH = 0;
 
 /** screenAngle is the OS's screen orientation angle (0, 90, 180, 270). */
 function screenAngle(): number {
@@ -441,39 +441,40 @@ function screenAngle(): number {
   return ((a % 360) + 360) % 360;
 }
 
-/** pinPicture fixes the tilt controller to the phone the first time it is
- *  shown in landscape. A portrait start keeps the rotate prompt until the
- *  player turns the phone; the refit that follows lands back here. */
-function pinPicture() {
-  if (tilt.pinned !== null || !tilt.pin(screenAngle())) return;
-  pinW = surface.clientWidth;
-  pinH = surface.clientHeight;
-  applyPin();
-  void lockOrientation();
+/** screenState is what the keeper needs to know about the screen now. */
+function screenState(): ScreenState {
+  return { angle: screenAngle(), vw: innerWidth, vh: innerHeight, type: screen.orientation?.type, fullscreen: !!document.fullscreenElement };
 }
 
-/** applyPin turns the page to match the OS's current rotation. */
-function applyPin() {
-  if (tilt.pinned === null) return;
-  pin = pinRotation(tilt.pinned, screenAngle(), pinW, pinH, innerWidth, innerHeight);
+/** syncPin runs on every resize/orientation event and the watchdog. It pins
+ *  as soon as the OS's angle and viewport agree on landscape (they change
+ *  in either order, and not always with a size change), then keeps the
+ *  page turned to match the OS. */
+function syncPin() {
+  const fresh = keeper.sync(screenState());
+  if (!keeper.pinned) return;
+  drawPin();
+  if (fresh) void applyLock(keeper.lockAfterChange(screenState()));
+}
+
+/** drawPin turns the page by the keeper's current counter-rotation. */
+function drawPin() {
+  const pin = keeper.pin;
+  if (!pin) return;
   const style = document.body.style;
-  style.setProperty("--pin-w", `${pinW}px`);
-  style.setProperty("--pin-h", `${pinH}px`);
+  style.setProperty("--pin-w", `${keeper.w}px`);
+  style.setProperty("--pin-h", `${keeper.h}px`);
   style.setProperty("--pin-rot", `${pin.deg}deg`);
   style.setProperty("--pin-scale", `${pin.scale}`);
   document.body.classList.add("pinned");
   rotateScreen.classList.add("hidden");
 }
 
-/** unpinPicture hands the page back to the OS's orientation. */
-function unpinPicture() {
-  if (tilt.pinned === null) return;
-  tilt.end();
-  pin = null;
+/** clearPinStyle hands the page back to the OS's orientation. */
+function clearPinStyle() {
   lastUp = null;
   document.body.classList.remove("pinned");
   for (const v of ["--pin-w", "--pin-h", "--pin-rot", "--pin-scale"]) document.body.style.removeProperty(v);
-  void lockOrientation();
 }
 
 /** recentre makes the way the phone is held now the neutral pose (a tap on
@@ -481,8 +482,8 @@ function unpinPicture() {
  *  with them. */
 function recentre() {
   if (tilt.recentre(lastUp)) {
-    applyPin();
-    void lockOrientation(); // an exact-way-round lock would now be the wrong way
+    syncPin();
+    void applyLock(keeper.lockAfterChange(screenState())); // an exact lock would now be the wrong way round
   }
   if (lastUp) steerFrom(lastUp); // straight to neutral, not at the next reading
   built?.wheel?.centred();
@@ -496,21 +497,19 @@ async function goFullscreen() {
   if (document.fullscreenElement) return;
   try {
     await (d.requestFullscreen?.({ navigationUI: "hide" }) ?? d.webkitRequestFullscreen?.());
-    await lockOrientation();
+    await applyLock(keeper.lockOnFullscreen(screenState()));
   } catch {
     // iOS Safari has no fullscreen for pages; "Add to Home Screen" does it.
   }
 }
 
-/** lockOrientation asks the OS not to rotate, where it allows that (Android,
- *  full screen only): a pinned tilt controller to the exact way it is held,
- *  any other landscape controller to landscape either way round. */
-async function lockOrientation() {
-  if (!document.fullscreenElement) return;
-  const o = screen.orientation as unknown as { lock?: (o: string) => Promise<void>; type?: string };
-  let want = built?.needsLandscape ? "landscape" : "";
-  if (tilt.pinned !== null && isLandscape(screenAngle()) && tilt.pinned === screenAngle() && o.type?.startsWith("landscape")) want = o.type;
-  if (want) await o.lock?.(want).catch(() => {});
+/** applyLock asks the OS to lock or unlock the orientation, where it
+ *  allows that (Android, full screen only). */
+async function applyLock(a: LockAction) {
+  if (!a) return;
+  const o = screen.orientation as unknown as { lock?: (o: string) => Promise<void>; unlock?: () => void };
+  if ("unlock" in a) o.unlock?.();
+  else await o.lock?.(a.lock).catch(() => {});
 }
 
 /** isStandalone reports a home-screen launch (already full screen). */
@@ -556,7 +555,7 @@ document.addEventListener("visibilitychange", () => {
 function refitIfNeeded() {
   // Pinned, the page keeps its laid-out size whatever the OS does, so this
   // only re-turns it.
-  if (tilt.pinned !== null) applyPin();
+  syncPin();
   if (built && (surface.clientWidth !== builtW || surface.clientHeight !== builtH)) relayout();
 }
 const refitSoon = () => {
@@ -768,7 +767,7 @@ function start() {
   // prove hosts drop answers to screens that are no longer current.
   event: (m: ScreenEvent) => transport?.sendEvent(m),
   // The tilt session, for scripts checking pinning and steering.
-  tilt: () => ({ pinned: tilt.pinned, pin, steer: lastTilt.steer, pitch: lastTilt.pitch, up: lastUp }),
+  tilt: () => ({ pinned: tilt.pinned, pin: keeper.pin, steer: lastTilt.steer, pitch: lastTilt.pitch, up: lastUp }),
 };
 // Exposed for the homepage's layout gallery and debugging.
 (window as unknown as { __layouts: typeof LAYOUTS }).__layouts = LAYOUTS;
