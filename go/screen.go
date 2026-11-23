@@ -150,19 +150,29 @@ func (e *Element) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// numberRange applies the stepper/slider defaults the phone uses.
+// maxNumber bounds stepper and slider values, as the relay does.
+const maxNumber = 1e6
+
+// numberRange applies the stepper/slider defaults the phone uses
+// (numberRange in src/shared/protocol.ts).
 func (e Element) numberRange() (lo, hi, step, v float64) {
-	lo, hi, step = e.Min, e.Max, e.Step
+	clamp := func(x float64) float64 { return math.Max(-maxNumber, math.Min(maxNumber, x)) }
+	lo, hi, step = clamp(e.Min), clamp(e.Max), e.Step
 	if lo == 0 && hi == 0 {
 		hi = 100
 	}
 	if hi < lo {
 		lo, hi = hi, lo
 	}
+	span := hi - lo
+	if span == 0 {
+		span = 1
+	}
 	if step <= 0 {
 		step = 1
 	}
-	return lo, hi, step, math.Max(lo, math.Min(hi, e.Value))
+	step = math.Min(step, span)
+	return lo, hi, step, math.Max(lo, math.Min(hi, clamp(e.Value)))
 }
 
 // interactive reports whether an element type sends events.
@@ -240,7 +250,7 @@ func (s *Screen) check(w wireEvent) (Event, bool) {
 	switch el.Type {
 	case ElemCards, ElemChoices:
 		var picks []string
-		if json.Unmarshal(w.Value, &picks) != nil || len(picks) != pickCount(el.Pick) {
+		if json.Unmarshal(w.Value, &picks) != nil || len(picks) != el.pickCount() {
 			return Event{}, false
 		}
 		allowed := map[string]bool{}
@@ -276,8 +286,12 @@ func (s *Screen) check(w wireEvent) (Event, bool) {
 	return ev, true
 }
 
-// pickCount is how many items an element wants chosen.
-func pickCount(pick int) int { return max(1, min(MaxPick, pick)) }
+// pickCount is how many items an element wants chosen: Pick, within 1-3
+// and no more than it offers (pickCount in src/shared/protocol.ts).
+func (e *Element) pickCount() int {
+	n := len(e.Cards) + len(e.Options)
+	return max(1, min(MaxPick, e.Pick, max(n, 1)))
+}
 
 // inputLength is an input's effective character limit.
 func inputLength(n int) int {

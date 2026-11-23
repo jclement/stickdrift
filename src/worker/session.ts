@@ -7,6 +7,11 @@
 // The hot path is webSocketMessage for a pad's binary frame: stamp the pad
 // number into byte 1 and send it to the host. No parsing, no allocation
 // beyond one copy, no awaits.
+//
+// Screen events (layout "screen") are the one pad message that carries game
+// input as JSON. They are forwarded only when they answer the screen the
+// pad is showing right now, so a host that never sends a screen never sees
+// one.
 import { DurableObject } from "cloudflare:workers";
 import {
   FRAME_INPUT,
@@ -14,13 +19,16 @@ import {
   PING,
   PONG,
   PROTOCOL_VERSION,
+  checkEvent,
   cleanAvatar,
   cleanCustom,
+  cleanScreen,
   cleanTheme,
   isLayout,
   type HostMessage,
   type PadInfo,
   type PadLook,
+  type Screen,
   type Signal,
   type ToHostMessage,
   type ToPadMessage,
@@ -46,8 +54,9 @@ interface Room {
 
 /** Hard limits that keep a room from being abused. */
 const MAX_PADS_LIMIT = 64;
-/** Text limit: SDP offers run a few KB, and a look may carry a 24 KB avatar. */
-const MAX_TEXT_BYTES = 32 * 1024;
+/** Text limit: SDP offers run a few KB, and a look may carry a 24 KB avatar
+ *  plus a screen of up to 24 elements. */
+const MAX_TEXT_BYTES = 64 * 1024;
 /** A host that has been gone this long loses its claim on the code. */
 const HOST_CLAIM_TTL_MS = 30 * 60 * 1000;
 /** Rooms with no host are wiped after this long. */
@@ -159,8 +168,40 @@ export class Session extends DurableObject<Env> {
 
   private sendSetup(ws: WebSocket, room: Room, device: string) {
     const p = room.pads[device];
-    const look = { ...room.look, ...p.look };
+    const look: PadLook = { ...room.look, ...p.look };
+    if (look.screen) look.screen = this.withPlayers(room, look.screen);
     this.sendJSON(ws, { t: "setup", pad: p.pad, title: room.title, version: PROTOCOL_VERSION, p2p: !!room.p2p, ...look } satisfies ToPadMessage);
+  }
+
+  /** withPlayers fills in the colour and avatar of every choice that names a
+   *  pad, from that pad's look, so a vote can show who is who. */
+  private withPlayers(room: Room, screen: Screen): Screen {
+    if (!screen.items.some((e) => e.options?.some((o) => o.pad !== undefined))) return screen;
+    const byPad = new Map(Object.values(room.pads).map((p) => [p.pad, { ...room.look, ...p.look }]));
+    return {
+      ...screen,
+      items: screen.items.map((e) =>
+        e.options
+          ? {
+              ...e,
+              options: e.options.map((o) => {
+                const who = o.pad === undefined ? undefined : byPad.get(o.pad);
+                if (!who) return o;
+                return { ...o, color: o.color ?? who.color, avatar: who.avatar || undefined };
+              }),
+            }
+          : e,
+      ),
+    };
+  }
+
+  /** screenOf is the screen a pad shows now: its look merged over the
+   *  room's, and only while its layout is "screen". */
+  private screenOf(room: Room, pad: number): Screen | undefined {
+    const entry = Object.values(room.pads).find((p) => p.pad === pad);
+    if (!entry) return undefined;
+    const look = { ...room.look, ...entry.look };
+    return look.layout === "screen" ? (look.screen ?? undefined) : undefined;
   }
 
   // ---- Messages ----
@@ -189,7 +230,7 @@ export class Session extends DurableObject<Env> {
 
   private padText(a: Extract<Attachment, { role: "pad" }>, msg: string) {
     if (msg.length > MAX_TEXT_BYTES) return;
-    let m: { t?: string; ms?: number; via?: string; data?: Signal };
+    let m: { t?: string; ms?: number; via?: string; data?: Signal; screen?: unknown };
     try {
       m = JSON.parse(msg);
     } catch {
@@ -199,6 +240,11 @@ export class Session extends DurableObject<Env> {
       this.toHost({ t: "rtt", pad: a.pad, ms: Math.round(m.ms), via: m.via === "p2p" ? "p2p" : "relay" });
     }
     if (m.t === "signal" && m.data && typeof m.data === "object") this.toHost({ t: "signal", pad: a.pad, data: m.data });
+    if (m.t === "event" && this.room) {
+      // Only an answer to the screen this pad shows now, with a clean value.
+      const ev = checkEvent(this.screenOf(this.room, a.pad), m);
+      if (ev) this.toHost({ ...ev, pad: a.pad });
+    }
   }
 
   private async hostText(msg: string) {
@@ -217,6 +263,7 @@ export class Session extends DurableObject<Env> {
         if (typeof m.open === "boolean") room.open = m.open;
         if (typeof m.p2p === "boolean") room.p2p = m.p2p;
         if (m.look) room.look = cleanLook(m.look);
+        if (room.look.screen === null) delete room.look.screen; // null only means something in a pad look
         await this.save();
         for (const ws of this.padSockets()) this.sendSetup(ws, room, (ws.deserializeAttachment() as { device: string }).device);
         return;
@@ -224,6 +271,8 @@ export class Session extends DurableObject<Env> {
         const entry = Object.entries(room.pads).find(([, p]) => p.pad === m.pad);
         if (!entry) return;
         entry[1].look = { ...entry[1].look, ...cleanLook(m) };
+        // screen: null removes the pad's own screen, so the room's shows.
+        if (entry[1].look.screen === null) delete entry[1].look.screen;
         await this.save();
         for (const ws of this.padSocketsFor(m.pad)) this.sendSetup(ws, room, entry[0]);
         return;
@@ -347,6 +396,12 @@ function cleanLook(l: PadLook): PadLook {
   if (l.custom) {
     const custom = cleanCustom(l.custom);
     if (custom) out.custom = custom;
+  }
+  if (l.screen === null) {
+    out.screen = null; // a pad look's way of falling back to the room's screen
+  } else if (l.screen !== undefined) {
+    const screen = cleanScreen(l.screen);
+    if (screen) out.screen = screen;
   }
   if (l.labels && typeof l.labels === "object") {
     out.labels = {};

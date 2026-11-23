@@ -154,6 +154,7 @@ export const LAYOUTS: LayoutInfo[] = [
   { id: "tilt", name: "Tilt", blurb: "Steer by tilting the phone; gas and brake under your thumbs.", orientation: "landscape", produces: "lx ly (tilt), A B, Left Right bits" },
   { id: "custom", name: "Custom", blurb: "Whatever the game describes: any mix of buttons, d-pads, sticks, sliders and touchpads, placed anywhere.", orientation: "any", produces: "whatever it declares" },
   { id: "touchpad", name: "Touchpad", blurb: "A trackpad: drag to move the pointer, tap to click, two-finger tap for B.", orientation: "any", produces: "px py, A B" },
+  { id: "screen", name: "Screen", blurb: "A little app page instead of a game pad: text cards, votes, bets, a text box and buttons, for word and card games.", orientation: "portrait", produces: "screen events (no buttons)" },
 ];
 
 /** isLayout reports whether id names a known layout. */
@@ -176,6 +177,7 @@ export interface PadLook {
   theme?: Theme; // the controller's visual style
   avatar?: string; // data:image/png;base64,... (≤ 24 KB): who you are, shown in the HUD and behind the controls
   banner?: string; // big faded text behind the controls, e.g. "RED"
+  screen?: Screen | null; // the page for layout "screen"; null (pad looks only) falls back to the room's
 }
 
 /** Largest avatar data URL accepted. A 64x64 PNG is a few KB. */
@@ -292,6 +294,267 @@ export function cleanCustom(raw: unknown): CustomLayout | null {
   return { orientation, controls };
 }
 
+// ---- Screens (layout "screen") ----
+//
+// A screen is a declarative page the phone renders as a normal scrolling
+// portrait page: headings, text, text cards to pick from, choices to vote
+// for, steppers and sliders, a text box, buttons and a status line. Players
+// answer with events ({t:"event"}), each naming the screen it answers, so a
+// late tap from a screen the host has since replaced never counts. Everything
+// here is plain text: the phone sets textContent, never innerHTML.
+
+/** The element types a screen can hold. */
+export const SCREEN_ELEMENTS = ["heading", "text", "cards", "choices", "stepper", "slider", "input", "button", "status"] as const;
+export type ScreenElementType = (typeof SCREEN_ELEMENTS)[number];
+
+/** Element types that send events. */
+export const INTERACTIVE_ELEMENTS: readonly ScreenElementType[] = ["cards", "choices", "stepper", "slider", "input", "button"];
+
+/** Screen limits, enforced by the relay and again by the phone. */
+export const SCREEN_LIMITS = {
+  items: 24, // elements per screen
+  cards: 12, // cards per cards element
+  cardText: 140,
+  options: 16, // options per choices element
+  optionText: 60,
+  pick: 3, // most cards or options picked at once
+  heading: 80,
+  text: 280,
+  status: 80,
+  label: 24, // button labels and submit labels
+  placeholder: 60,
+  input: 80, // characters a player may type
+  number: 1e6, // stepper and slider bounds, ±
+  countdown: 3600, // status seconds
+} as const;
+
+/** A text card. */
+export interface ScreenCard {
+  id: string;
+  text: string;
+}
+
+/** A line in a choices element. pad shows that player's colour and avatar
+ *  (the relay fills in color and avatar from that pad's look). */
+export interface ScreenOption {
+  id: string;
+  text: string;
+  pad?: number;
+  color?: string;
+  avatar?: string; // set by the relay only
+}
+
+/** One element of a screen; which fields matter depends on type. */
+export interface ScreenElement {
+  type: ScreenElementType;
+  id?: string; // required for interactive elements, unique on the screen
+  text?: string; // heading, text, status
+  disabled?: boolean;
+  cards?: ScreenCard[];
+  options?: ScreenOption[];
+  pick?: number; // cards, choices: how many to choose (1-3)
+  submit?: string; // a confirm button under the element
+  min?: number; // stepper, slider
+  max?: number;
+  step?: number;
+  value?: number;
+  maxLength?: number; // input
+  placeholder?: string;
+  label?: string; // button
+  color?: string; // button
+  seconds?: number; // status: countdown bar from when the phone shows it
+  progress?: number; // status: static bar 0..1
+}
+
+/** A page for layout "screen". Re-sending the same id keeps what the player
+ *  has selected or typed; a new id starts afresh. */
+export interface Screen {
+  id: string;
+  locked?: boolean; // every control disabled ("Locked in. Judge is thinking…")
+  items: ScreenElement[];
+}
+
+/** A player's answer. Phone -> relay (and over the data channel); the relay
+ *  adds pad. value: cards and choices, the chosen ids in order; stepper and
+ *  slider, a number; input, a string; button, absent. n counts up per phone
+ *  page so a host can drop the copy that arrives by the other path. */
+export interface ScreenEvent {
+  t: "event";
+  n: number;
+  screen: string;
+  element: string;
+  value?: string[] | number | string | null;
+}
+
+const ID = /^[A-Za-z0-9_-]{1,32}$/;
+const SCREEN_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** plain makes untrusted text safe to keep: a string, control characters
+ *  (other than newlines) removed, at most n characters. */
+function plain(v: unknown, n: number): string | undefined {
+  if (typeof v !== "string") return undefined;
+  // eslint-disable-next-line no-control-regex
+  return [...v.replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, "")].slice(0, n).join("");
+}
+
+const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+/** numberRange applies the stepper/slider defaults: max 100 when min and
+ *  max are both unset or 0, step 1, value clamped into range. (go/screen.go
+ *  numberRange matches.) */
+export function numberRange(e: Pick<ScreenElement, "min" | "max" | "step" | "value">): { min: number; max: number; step: number; value: number } {
+  const lim = SCREEN_LIMITS.number;
+  const clamp = (v: unknown, d: number) => (finite(v) ? Math.max(-lim, Math.min(lim, v)) : d);
+  let min = clamp(e.min, 0);
+  let max = clamp(e.max, 0);
+  if (min === 0 && max === 0) max = 100;
+  if (max < min) [min, max] = [max, min];
+  const step = finite(e.step) && e.step > 0 ? Math.min(e.step, max - min || 1) : 1;
+  const value = Math.max(min, Math.min(max, clamp(e.value, min)));
+  return { min, max, step, value };
+}
+
+/** pickCount is how many items a cards or choices element wants chosen. */
+export function pickCount(e: { pick?: number; cards?: unknown[]; options?: unknown[] }): number {
+  const n = (e.cards ?? e.options ?? []).length;
+  const want = finite(e.pick) ? Math.floor(e.pick) : 1;
+  return Math.max(1, Math.min(SCREEN_LIMITS.pick, want, n || 1));
+}
+
+/** inputLength is an input's effective character limit. */
+export function inputLength(e: { maxLength?: number }): number {
+  const n = finite(e.maxLength) ? Math.floor(e.maxLength) : 0;
+  return n >= 1 && n <= SCREEN_LIMITS.input ? n : SCREEN_LIMITS.input;
+}
+
+/** cleanScreen validates a screen from an untrusted source, keeping known
+ *  fields with sane values and dropping unknown types and fields. Option
+ *  avatars are kept only when allowAvatars (the phone, receiving what the
+ *  relay filled in); hosts cannot send them. Returns null if unusable. */
+export function cleanScreen(raw: unknown, allowAvatars = false): Screen | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.id !== "string" || !SCREEN_ID.test(r.id) || !Array.isArray(r.items)) return null;
+  const L = SCREEN_LIMITS;
+  const ids = new Set<string>();
+  const items: ScreenElement[] = [];
+  for (const it of r.items.slice(0, L.items)) {
+    if (!it || typeof it !== "object") continue;
+    const o = it as Record<string, unknown>;
+    const type = o.type as ScreenElementType;
+    if (!SCREEN_ELEMENTS.includes(type)) continue;
+    const e: ScreenElement = { type };
+    if (INTERACTIVE_ELEMENTS.includes(type)) {
+      if (typeof o.id !== "string" || !ID.test(o.id) || ids.has(o.id)) continue;
+      ids.add(o.id);
+      e.id = o.id;
+      if (o.disabled === true) e.disabled = true;
+    }
+    const submit = plain(o.submit, L.label);
+    switch (type) {
+      case "heading":
+      case "text":
+      case "status": {
+        const text = plain(o.text, type === "heading" ? L.heading : type === "text" ? L.text : L.status);
+        if (text) e.text = text;
+        if (type === "status") {
+          if (finite(o.seconds) && o.seconds > 0) e.seconds = Math.min(L.countdown, o.seconds);
+          if (finite(o.progress)) e.progress = Math.max(0, Math.min(1, o.progress));
+        }
+        if (!e.text && e.seconds === undefined && e.progress === undefined) continue;
+        break;
+      }
+      case "cards":
+      case "choices": {
+        const list = type === "cards" ? o.cards : o.options;
+        if (!Array.isArray(list)) continue;
+        const seen = new Set<string>();
+        const out: (ScreenCard & ScreenOption)[] = [];
+        for (const c of list.slice(0, type === "cards" ? L.cards : L.options)) {
+          if (!c || typeof c !== "object") continue;
+          const co = c as Record<string, unknown>;
+          if (typeof co.id !== "string" || !ID.test(co.id) || seen.has(co.id)) continue;
+          seen.add(co.id);
+          const item: ScreenCard & ScreenOption = { id: co.id, text: plain(co.text, type === "cards" ? L.cardText : L.optionText) ?? "" };
+          if (type === "choices") {
+            if (finite(co.pad) && Number.isInteger(co.pad) && co.pad >= 0 && co.pad < 64) item.pad = co.pad;
+            if (typeof co.color === "string" && HEX.test(co.color)) item.color = co.color;
+            const avatar = allowAvatars ? cleanAvatar(co.avatar) : null;
+            if (avatar) item.avatar = avatar;
+          }
+          out.push(item);
+        }
+        if (!out.length) continue;
+        if (type === "cards") e.cards = out.map(({ id, text }) => ({ id, text }));
+        else e.options = out;
+        e.pick = pickCount({ pick: o.pick as number, cards: out });
+        if (submit) e.submit = submit;
+        break;
+      }
+      case "stepper":
+      case "slider":
+        Object.assign(e, numberRange(o as ScreenElement));
+        if (submit) e.submit = submit;
+        break;
+      case "input": {
+        e.maxLength = inputLength(o as ScreenElement);
+        const placeholder = plain(o.placeholder, L.placeholder);
+        if (placeholder) e.placeholder = placeholder;
+        if (submit) e.submit = submit;
+        break;
+      }
+      case "button":
+        e.label = plain(o.label, L.label) || "OK";
+        if (typeof o.color === "string" && HEX.test(o.color)) e.color = o.color;
+        break;
+    }
+    items.push(e);
+  }
+  const out: Screen = { id: r.id, items };
+  if (r.locked === true) out.locked = true;
+  return out;
+}
+
+/** checkEvent decides whether an event answers screen, and cleans its value:
+ *  the element exists, is interactive and enabled, the screen isn't locked,
+ *  picks are that element's ids (pick of them, no repeats), numbers are
+ *  clamped into range, text is cut to maxLength. Returns null to drop it.
+ *  go/screen.go check mirrors this. */
+export function checkEvent(screen: Screen | null | undefined, raw: unknown): ScreenEvent | null {
+  if (!screen || screen.locked || !raw || typeof raw !== "object") return null;
+  const m = raw as Record<string, unknown>;
+  if (m.screen !== screen.id || typeof m.element !== "string") return null;
+  if (!finite(m.n) || !Number.isInteger(m.n) || m.n < 1 || m.n > 2 ** 31) return null;
+  const el = screen.items.find((e) => e.id === m.element && INTERACTIVE_ELEMENTS.includes(e.type));
+  if (!el || el.disabled) return null;
+  const out: ScreenEvent = { t: "event", n: m.n, screen: screen.id, element: m.element };
+  const v = m.value;
+  switch (el.type) {
+    case "cards":
+    case "choices": {
+      const allowed = new Set((el.cards ?? el.options ?? []).map((c) => c.id));
+      if (!Array.isArray(v) || v.length !== pickCount(el)) return null;
+      if (new Set(v).size !== v.length || !v.every((id) => typeof id === "string" && allowed.has(id))) return null;
+      out.value = v as string[];
+      break;
+    }
+    case "stepper":
+    case "slider": {
+      if (!finite(v)) return null;
+      const r = numberRange(el);
+      out.value = Math.max(r.min, Math.min(r.max, v));
+      break;
+    }
+    case "input":
+      if (typeof v !== "string") return null;
+      out.value = [...v].slice(0, inputLength(el)).join("");
+      break;
+    case "button":
+      break;
+  }
+  return out;
+}
+
 /** Host -> relay. */
 export type HostMessage =
   | { t: "config"; title?: string; maxPads?: number; open?: boolean; look?: PadLook; p2p?: boolean }
@@ -307,6 +570,7 @@ export type ToHostMessage =
   | { t: "leave"; pad: number }
   | { t: "rtt"; pad: number; ms: number; via?: "p2p" | "relay" }
   | { t: "signal"; pad: number; data: Signal }
+  | ({ pad: number } & ScreenEvent)
   | { t: "error"; code: string; message: string };
 
 /** A connected pad as the host sees it. */
@@ -328,7 +592,7 @@ export type ToPadMessage =
   | { t: "pong" };
 
 /** Phone -> relay. */
-export type PadMessage = { t: "hello"; name?: string } | { t: "rtt"; ms: number; via?: "p2p" | "relay" } | { t: "signal"; data: Signal };
+export type PadMessage = { t: "hello"; name?: string } | { t: "rtt"; ms: number; via?: "p2p" | "relay" } | { t: "signal"; data: Signal } | ScreenEvent;
 
 /** The exact ping string both sides send; the relay answers it without waking. */
 export const PING = '{"t":"ping"}';
