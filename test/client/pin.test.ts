@@ -97,6 +97,29 @@ describe("orientation lock follows the incoming layout", () => {
     k.session.recentre([-0.6, 0, 0.8]); // held the other way up: pin flips to 270
     expect(k.session.pinned).toBe(270);
     expect(k.lockAfterChange(fs(land90))).toEqual({ lock: "landscape" });
+    // The relaxed lock is still tilt's: leaving for a portrait layout
+    // releases it rather than leaving the phone stuck in landscape.
+    expect(k.beforeBuild(false)).toBe(true);
+    expect(k.afterBuild(false, false, fs(land90))).toEqual({ unlock: true });
+  });
+
+  it("after a re-centre, leaving for a landscape layout keeps landscape and then lets go of ownership", () => {
+    const k = new PinKeeper();
+    k.afterBuild(true, true, fs(land90));
+    k.session.recentre([-0.6, 0, 0.8]);
+    k.lockAfterChange(fs(land90));
+    k.beforeBuild(false);
+    expect(k.afterBuild(false, true, fs(land90))).toEqual({ lock: "landscape" });
+    expect(k.afterBuild(false, false, fs(land90))).toBe(null);
+  });
+
+  it("owns the lock when full screen is entered while pinned the other way round", () => {
+    const k = new PinKeeper();
+    k.afterBuild(true, true, land90);
+    k.session.recentre([-0.6, 0, 0.8]); // pinned at 270, OS at 90
+    expect(k.lockOnFullscreen(fs(land90))).toEqual({ lock: "landscape" });
+    k.beforeBuild(false);
+    expect(k.afterBuild(false, false, fs(land90))).toEqual({ unlock: true });
   });
 
   it("leaves other games' locks exactly as before", () => {

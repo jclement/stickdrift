@@ -34,7 +34,7 @@ export class PinKeeper {
   h = 0;
   private wanted = false; // a tilt layout is up
   private needsLandscape = false; // the current layout wants landscape
-  private tiltLock = false; // the lock held is an exact one for a pin
+  private tiltLock = false; // the lock held was put on by a tilt pin (exact or relaxed)
 
   get pinned(): boolean {
     return this.session.pinned !== null;
@@ -81,9 +81,11 @@ export class PinKeeper {
 
   /** lockAfterChange is the lock after a layout change, a new pin or a
    *  re-centre. Only tilt changes it: a pin gets an exact lock (the way the
-   *  phone is held), and when that pin goes, so does its lock — relaxed to
-   *  either landscape for a landscape layout, released otherwise. Other
-   *  layouts keep whatever entering full screen set, as they always have. */
+   *  phone is held). While still pinned but no longer matching (a re-centre
+   *  turned it round) it is relaxed to either landscape and stays tilt's to
+   *  release. When the pin goes, so does its lock: relaxed to landscape for
+   *  a landscape layout, released otherwise. Other layouts keep whatever
+   *  entering full screen set, as they always have. */
   lockAfterChange(s: ScreenState): LockAction {
     if (!s.fullscreen) return null;
     const exact = this.exactLock(s);
@@ -92,6 +94,7 @@ export class PinKeeper {
       return { lock: exact };
     }
     if (!this.tiltLock) return null;
+    if (this.pinned) return { lock: "landscape" }; // still tilt's lock
     this.tiltLock = false;
     return this.needsLandscape ? { lock: "landscape" } : { unlock: true };
   }
@@ -104,6 +107,7 @@ export class PinKeeper {
       this.tiltLock = true;
       return { lock: exact };
     }
+    if (this.pinned) this.tiltLock = true; // pinned, but the OS is the other way round
     return this.needsLandscape ? { lock: "landscape" } : null;
   }
 
