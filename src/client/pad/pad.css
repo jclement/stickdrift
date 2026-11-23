@@ -737,6 +737,7 @@ body.screen-mode .screen-page {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scrollbar-width: none; /* phones overlay theirs; desktop previews would show a white bar */
   touch-action: pan-y;
   /* Content scrolling up fades out before it reaches the HUD chips. */
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent max(52px, calc(env(safe-area-inset-top) + 44px)), #000 max(76px, calc(env(safe-area-inset-top) + 68px)));

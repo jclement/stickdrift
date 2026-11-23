@@ -113,7 +113,25 @@
       </section>
     </main>
 
+    <!-- Screen layout: a JSON editor with a live, tappable phone (no drag-and-drop builder: screens are a flowing list). -->
+    <section id="screen" class="screen-editor">
+      <div>
+        <p class="eyebrow">WORD AND CARD GAMES</p>
+        <h2 class="font-display font-bold text-2xl md:text-3xl text-white">Screens</h2>
+        <p class="text-sm text-muted mt-2">
+          <code>layout: "screen"</code> turns the phone into a little scrolling page: text cards, votes, bets, a text box and buttons.
+          Edit the JSON; the phone updates. Tap it: the bubble at the bottom shows the event your game would get.
+          Every element is in <a href="/docs#screens" class="underline">the Screens docs</a>.
+        </p>
+        <textarea id="screen-json" class="d-import screen-json" rows="22" spellcheck="false" aria-label="Screen JSON"></textarea>
+        <p id="screen-msg" class="text-xs text-muted mt-2"></p>
+        <button id="screen-copy" class="btn-ghost btn-sm mt-2" type="button">COPY JSON</button>
+      </div>
+      <div class="phone screen-phone"><iframe id="screen-pad" title="Screen preview"></iframe></div>
+    </section>
+
     <footer class="site-foot">(C) 2026 Straybits Corp · MIT · <a href="/docs">Docs</a> · <a href="/agents.md">agents.md</a></footer>
     <script type="module" src="./site/designer.ts"></script>
+    <script type="module" src="./site/screen-editor.ts"></script>
   </body>
 </html>

@@ -12,8 +12,9 @@ Relay: https://stickdrift.net. Browser SDK: `import { StickDriftHost, pressed, h
 
 ## Controllers
 
-- [Layouts](https://stickdrift.net/docs/layouts.md): the ten built-in layouts, what each produces, preview URLs
+- [Layouts](https://stickdrift.net/docs/layouts.md): the built-in layouts, what each produces, preview URLs
 - [Custom layouts](https://stickdrift.net/docs/custom-layouts.md): every control type and field for `layout: "custom"`
+- [Screens](https://stickdrift.net/docs/screens.md): `layout: "screen"` turns phones into little app pages (text cards, votes, bets, typed answers) that send events, for word and card games
 - [Themes](https://stickdrift.net/docs/themes.md): styles, fonts, shapes, colours
 - [Avatars and banners](https://stickdrift.net/docs/avatars.md): show each player who they are
 - [Haptics](https://stickdrift.net/docs/haptics.md): vibration patterns (Android only)
@@ -35,4 +36,4 @@ Relay: https://stickdrift.net. Browser SDK: `import { StickDriftHost, pressed, h
 
 - [Demo host](https://stickdrift.net/demo): a working host showing every pad's live state, for testing
 - [Layout designer](https://stickdrift.net/designer): build a custom layout visually and copy its JSON
-- Preview any look without a room: `https://stickdrift.net/j?preview=<layout>&color=%23hex&style=<glass|neon|flat|retro|candy>&font=<display|sans|mono|pixel>&shape=<round|rounded|square>&bg=%23hex&text=%23hex`, and for custom layouts `/j?preview=custom#layout=<base64url JSON>`
+- Preview any look without a room: `https://stickdrift.net/j?preview=<layout>&color=%23hex&style=<glass|neon|flat|retro|candy>&font=<display|sans|mono|pixel>&shape=<round|rounded|square>&bg=%23hex&text=%23hex`, for custom layouts `/j?preview=custom#layout=<base64url JSON>`, for screens `/j?preview=screen#layout=<base64url JSON>`

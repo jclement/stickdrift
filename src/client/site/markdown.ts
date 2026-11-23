@@ -19,12 +19,16 @@
 //   { "controls": [ … ] }            "custom" and "theme"): shown as JSON
 //   ```                              next to a live preview of it.
 //
+//   ```screen                        a screen for layout "screen" (or a
+//   { "id": "r1", "items": [ … ] }   look with "screen" and "theme"): the
+//   ```                              JSON next to a live, tappable preview.
+//
 //   ```live                          a placeholder that the docs page
 //   avatars                          script turns into an interactive demo.
 //   ```
 //
 // Pure functions only, no DOM: it is imported by vite.config.ts and tests.
-import { LAYOUTS, cleanCustom, cleanTheme, type CustomLayout, type Theme } from "../../shared/protocol";
+import { LAYOUTS, cleanCustom, cleanScreen, cleanTheme, type CustomLayout, type Screen, type Theme } from "../../shared/protocol";
 
 /** A rendered document: its HTML and the headings found, for navigation. */
 export interface Rendered {
@@ -106,13 +110,14 @@ export interface PreviewSpec {
   title?: string;
   portrait: boolean;
   custom?: CustomLayout;
+  screen?: Screen;
 }
 
 /** previewUrl builds the /j?preview= URL for one phone. */
 export function previewUrl(p: PreviewSpec): string {
   const q = new URLSearchParams({ preview: p.layout });
   for (const k of PREVIEW_PARAMS) if (p.params[k]) q.set(k, p.params[k]);
-  const hash = p.custom ? `#layout=${base64url(asciiJson(p.custom))}` : "";
+  const hash = p.custom || p.screen ? `#layout=${base64url(asciiJson(p.custom ?? p.screen))}` : "";
   return `/j?${q.toString()}${hash}`;
 }
 
@@ -176,6 +181,33 @@ function customBlock(body: string): string {
   if (theme.text) params.text = theme.text;
   const phone = phoneHtml({ layout: "custom", params, custom, portrait: custom.orientation === "portrait", title: "Live preview" });
   return `<div class="doc-custom">${codeBlock(body, "json")}${phone}</div>`;
+}
+
+/** screenBlock renders a ```screen fence: the JSON beside a live preview. */
+function screenBlock(body: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch (e) {
+    throw new Error(`invalid JSON in a screen block: ${(e as Error).message}\n${body}`);
+  }
+  const look = parsed as { screen?: unknown; theme?: unknown; color?: string };
+  const screen = cleanScreen(look.screen ?? parsed);
+  if (!screen) throw new Error(`screen block has no usable screen (it needs an id and items):\n${body}`);
+  const params: Record<string, string> = { color: look.color ?? "#ff8c1a", ...themeParams(cleanTheme(look.theme) ?? {}) };
+  const phone = phoneHtml({ layout: "screen", params, screen, portrait: true, title: "Live preview: tap it" });
+  return `<div class="doc-custom">${codeBlock(body, "json")}${phone}</div>`;
+}
+
+/** themeParams turns a theme into preview URL params. */
+function themeParams(theme: Theme): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (theme.style) params.style = theme.style;
+  if (theme.font) params.font = theme.font;
+  if (theme.shape) params.shape = theme.shape;
+  if (theme.background) params.bg = theme.background;
+  if (theme.text) params.text = theme.text;
+  return params;
 }
 
 /** liveBlock is a placeholder the docs page script turns into an
@@ -243,6 +275,7 @@ export function render(md: string, opts: RenderOptions = {}): Rendered {
       const text = body.join("\n");
       if (lang === "preview") out.push(previewBlock(text));
       else if (lang === "custom") out.push(customBlock(text));
+      else if (lang === "screen") out.push(screenBlock(text));
       else if (lang === "live") out.push(liveBlock(text.trim()));
       else out.push(codeBlock(text, lang));
       continue;

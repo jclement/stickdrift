@@ -7,7 +7,7 @@ import { asciiJson, base64url, escapeHtml, inline, parsePreviewLine, previewUrl,
 import { buildDocs } from "../src/client/site/docs-build";
 import { DOC_SECTIONS } from "../src/client/site/docs-index";
 import { FIELDS, STARTERS, boxOf, decodeDesign, encodeDesign, newControl, previewPath, toLook, unit } from "../src/client/site/designer-model";
-import { CONTROL_TYPES, cleanCustom } from "../src/shared/protocol";
+import { CONTROL_TYPES, cleanCustom, cleanScreen } from "../src/shared/protocol";
 
 describe("markdown inline", () => {
   it("escapes HTML and formats code, bold, italics and links", () => {
@@ -78,6 +78,17 @@ describe("live previews", () => {
     // Decode exactly as the phone does: atob, then JSON.parse.
     const decoded = cleanCustom(JSON.parse(atob(hash.replace(/-/g, "+").replace(/_/g, "/"))));
     expect(decoded?.controls[0].label).toBe("GO 🚀");
+  });
+  it("renders a screen fence as JSON plus a decodable, portrait preview", () => {
+    const html = render('```screen\n{"id":"r1","items":[{"type":"cards","id":"h","cards":[{"id":"a","text":"Soup 🍲"}]}]}\n```').html;
+    expect(html).toContain("doc-phone portrait");
+    expect(html).toContain("preview=screen");
+    const hash = html.match(/#layout=([A-Za-z0-9_-]+)/)![1];
+    const decoded = cleanScreen(JSON.parse(atob(hash.replace(/-/g, "+").replace(/_/g, "/"))));
+    expect(decoded?.items[0].cards?.[0].text).toBe("Soup 🍲");
+  });
+  it("fails the build on a broken screen fence", () => {
+    expect(() => render('```screen\n{"items":[]}\n```')).toThrow(/no usable screen/);
   });
   it("fails the build on a broken custom fence", () => {
     expect(() => render("```custom\n{nope\n```")).toThrow(/invalid JSON/);

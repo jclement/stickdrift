@@ -116,3 +116,9 @@
 .qr-box { display: flex; gap: 1rem; align-items: center; margin-top: 1rem; }
 .qr-box[hidden] { display: none; }
 .qr { flex: none; width: 9rem; padding: .5rem; border-radius: 12px; background: white; }
+
+/* Screen editor: JSON on the left, a portrait phone on the right. */
+.screen-editor { max-width: 72rem; margin: 0 auto; padding: 3rem 1rem 4rem; display: grid; gap: 2rem; grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 900px) { .screen-editor { grid-template-columns: 1fr 340px; } }
+.screen-json { width: 100%; margin-top: 1rem; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .75rem; }
+.screen-phone { width: 100%; max-width: 340px; aspect-ratio: 9 / 19.5; justify-self: center; }

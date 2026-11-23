@@ -46,6 +46,7 @@ host.on("leave", (pad) => {});            // it went; everything it held is rele
 host.on("input", (pad, prev) => {});      // a frame arrived (optional: poll() is usually better)
 host.on("rtt", (pad) => {});              // pad.rtt / pad.via changed
 host.on("p2p", (pad) => {});              // pad.p2p changed: a data channel came up or went down
+host.on("event", (answer) => {});         // a player answered their screen (also queued for events())
 host.on("close", () => {});               // relay socket dropped; reconnecting
 host.on("error", (code, message) => {});  // code "replaced": another host took the room
 ```
@@ -81,6 +82,16 @@ for (const [n, p] of host.poll()) {
 Use `pressed` for actions (jump, fire, select) and `held` for continuous
 things (walking, charging). Reading `held` alone misses taps that start and
 end between two frames.
+
+Pads on a [screen](/docs#screens) answer with events instead. `events()`
+returns the answers since the last call, each `{ pad, screen, element,
+type, value }`: only answers to that pad's current screen, once each.
+
+```js
+for (const ev of host.events()) {
+  if (ev.element === "hand") play(ev.pad, ev.value); // card ids, in order
+}
+```
 
 ### Commands
 
@@ -167,6 +178,7 @@ frame agrees.
 | `host.SetPad(n, look)` | One pad's look; zero fields keep their value |
 | `host.Haptic(n, ms...)` | Vibrate a phone: one duration or an on/off pattern (Android) |
 | `host.Kick(n)`, `host.SetOpen(open)` | Remove a phone; allow or refuse new ones |
+| `host.Events()` | [Screen](/docs#screens) answers since the last call: `Event{Pad, Screen, Element, Type, Picks, Number, Text}`, only for each pad's current screen, once each |
 | `host.Close()` | Shut the room and wait for the goroutines |
 
 `Options`: `Origin` (default `$STICKDRIFT_URL`, else `https://stickdrift.net`),
@@ -197,10 +209,13 @@ them in bit order); `stickdrift.Layouts` lists the layout ids.
 `Labels` (`map[stickdrift.Button]string`, e.g. `{stickdrift.A: "BOMB"}`),
 `Message`, `Swap` and `Diagonals` (pointers: `stickdrift.Bool(false)`),
 `Theme`, `Custom` (`*stickdrift.CustomLayout` of `Control`s; set a control's
-button with `stickdrift.Btn(stickdrift.A)`), `Avatar` and `Banner`.
+button with `stickdrift.Btn(stickdrift.A)`), `Avatar`, `Banner` and `Screen`
+(`*stickdrift.Screen` of `Element`s, for layout `"screen"`; see
+[Screens](/docs#screens) and `go/examples/screen`).
 
 Because zero fields are left out, blanking a text field needs `Clear`:
 `stickdrift.Look{Clear: []string{"message"}}` sends `"message": ""`.
+`Clear: []string{"screen"}` drops a pad's own screen so the room's shows.
 `stickdrift.AvatarPNG(pngBytes)` builds the avatar data URL, or tells you
 why the relay would drop it.
 

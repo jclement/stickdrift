@@ -103,6 +103,17 @@ Anything else. Describe your own controls with `look.custom`: see
 [Custom layouts](/docs#custom-layouts), or build one visually in the
 [layout designer](/designer).
 
+## Screen: `screen`
+
+Not a controller at all: a little scrolling app page with text cards,
+votes, bets, a text box and buttons, for word, card and voting games. The
+phone sends events (which cards, which option, what number, what text)
+instead of buttons. See [Screens](/docs#screens).
+
+```preview
+screen color=#ff8c1a
+```
+
 ## Which one?
 
 | Game | Layout |
@@ -115,6 +126,7 @@ Anything else. Describe your own controls with `look.custom`: see
 | Pong, Breakout | `paddle` |
 | Racing | `tilt` |
 | Point-and-click, drawing, cursor UI | `touchpad` |
+| Card game, voting, betting, typed answers | `screen` |
 
 ## Options that apply to every layout
 
@@ -134,6 +146,7 @@ work. Put them in your own docs, store pages, or tests:
 /j?preview=gamepad&color=%23ff4d6d
 /j?preview=stick-ab&style=neon&font=display&shape=round
 /j?preview=custom&color=%23ff8c1a#layout=<base64url of the custom JSON>
+/j?preview=screen#layout=<base64url of the screen JSON>
 ```
 
 | Param | Value |
@@ -142,4 +155,4 @@ work. Put them in your own docs, store pages, or tests:
 | `color` | the player colour, hex (URL-encode `#` as `%23`) |
 | `style`, `font`, `shape` | theme presets, see [Themes](/docs#themes) |
 | `bg`, `text` | theme colours, hex |
-| `#layout=` | for `custom`: the layout JSON, base64url |
+| `#layout=` | for `custom`: the layout JSON, base64url; for `screen`: the screen JSON |

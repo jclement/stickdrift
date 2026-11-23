@@ -39,6 +39,7 @@ minutes after the host disconnects; an unhosted room is wiped after 6 hours.
 | `{"t":"join","pad":3,"device":"…","rejoin":false}` | A phone took seat 3. `rejoin` is true when this phone had the seat before. |
 | `{"t":"leave","pad":3}` | Seat 3's phone disconnected. Treat everything as released. |
 | `{"t":"rtt","pad":3,"ms":31}` | That phone's measured round trip to the relay. |
+| `{"t":"event","pad":3,"n":7,"screen":"r1","element":"hand","value":["c2"]}` | A player answered a screen (see [Screens](#screens)). Only sent to a host that has given that pad a screen. |
 | 16 bytes, binary | An input frame (below). |
 
 ## Pad connection
@@ -105,6 +106,8 @@ On the data channel:
   (16-bit wrap-aware: newer if `(a - b) & 0xffff` is in 1..32767), and reset
   that tracking when a pad (re)joins.
 - `[2, 0, 0, 0, u32 timestamp]` (8 bytes) is a ping: echo it back unchanged.
+- A **text** message is a screen event (below), without `pad`. Hosts that
+  don't use screens can ignore text; they never receive any.
 
 ## Looks
 
@@ -136,7 +139,7 @@ A look is any subset of:
   look; the phone rebuilds instantly and releases anything held.
 
 - `layout`: `dpad-ab`, `stick-ab`, `arcade`, `gamepad`, `twin-stick`,
-  `buzzer`, `quiz`, `paddle`, `tilt`, `touchpad`, `custom`.
+  `buzzer`, `quiz`, `paddle`, `tilt`, `touchpad`, `custom`, `screen`.
 - `swap`: lets the player flip between the d-pad and stick versions
   (`dpad-ab` ⇄ `stick-ab`, `arcade` ⇄ `gamepad`).
 - `diagonals: false`: a 4-way d-pad, for grid games.
@@ -163,3 +166,57 @@ A look is any subset of:
 
 A custom layout can be previewed with no room at
 `/j?preview=custom#layout=<base64url of the JSON>`.
+
+### Screens
+
+`layout: "screen"` shows a scrolling page instead of controls, described by
+`look.screen`:
+
+```json
+{ "id": "r1", "locked": false, "items": [
+  { "type": "heading", "text": "Pick one" },
+  { "type": "cards", "id": "hand", "pick": 1, "submit": "PLAY", "cards": [{ "id": "c1", "text": "…" }] },
+  { "type": "choices", "id": "vote", "pick": 1, "options": [{ "id": "p2", "text": "Ann", "pad": 2, "color": "#3a86ff" }] },
+  { "type": "stepper", "id": "bet", "min": 0, "max": 100, "step": 5, "value": 10, "submit": "BET" },
+  { "type": "slider", "id": "spice", "min": 0, "max": 10, "step": 1, "value": 5 },
+  { "type": "input", "id": "answer", "maxLength": 80, "placeholder": "…", "submit": "SEND" },
+  { "type": "button", "id": "ready", "label": "READY", "color": "#38d996" },
+  { "type": "status", "text": "Waiting…", "seconds": 30, "progress": 0.5 }
+] }
+```
+
+Limits (the relay and the phone enforce them; extra items are dropped,
+text is cut, numbers clamped): `id` 1-64 of `[A-Za-z0-9_-]`; element, card
+and option ids 1-32 of the same, unique; 24 items; 12 cards of 140
+characters; 16 options of 60; `pick` 1-3; heading 80, text 280, status 80,
+labels and `submit` 24, placeholder 60; `maxLength` 1-80; numbers within
+±1,000,000; `seconds` up to 3600; `progress` 0..1. Every interactive element
+may carry `disabled: true`. Everything is plain text. In a `pad` message,
+`"screen": null` removes that pad's own screen, so the room's shows again.
+For choices with `pad`, the relay adds that pad's `color` (unless given)
+and `avatar` before sending the screen to phones.
+
+**Events.** When a player answers, the phone sends
+
+```json
+{"t":"event","n":7,"screen":"r1","element":"hand","value":["c2"]}
+```
+
+`value`: cards and choices, the chosen ids in order (exactly `pick` of
+them); stepper and slider, a number; input, a string; button, absent. `n`
+counts up from 1 per page load. The phone sends each event **once over the
+data channel if it is open and once over the relay** (the channel is
+unreliable, and an answer is said only once). The relay forwards it, with
+`pad` added and the value cleaned, only if it answers the screen that pad
+shows now (`screen` matches, the element exists, is interactive and
+enabled, the screen isn't locked, the value fits the element); it never
+forwards events for a pad whose layout isn't `screen`.
+
+Hosts must apply the same check to events from the data channel, and must
+drop copies: keep, per pad, the highest `n` seen and which of the 64 below
+it have been; accept an `n` once; reset when the pad (re)joins.
+
+Re-sending a screen with the same `id` keeps the player's picks and typed
+text on the phone. An element that has sent an event locks until a screen
+with a new `id` arrives (steppers and sliders without `submit` send live
+and never lock).
