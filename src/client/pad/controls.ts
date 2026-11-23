@@ -410,13 +410,29 @@ export class Touchpad implements Control {
 
 /** TiltWheel shows a steering wheel that turns with the phone. The reading
  *  comes from Input.tilt (device orientation); this is only the picture. */
+/** TiltWheel shows the steering. Tapping it makes the current pose the
+ *  neutral one (the page handles the tap; see recentre in main.ts). */
 export class TiltWheel {
   el: HTMLElement;
-  constructor(place: Place, parent: HTMLElement) {
+  private hint: HTMLElement;
+  constructor(private place: Place, parent: HTMLElement) {
     this.el = el("wheel", place, parent);
+    // The hint sits in the ring's empty middle and doesn't turn with it.
+    this.hint = el("wheel-hint", place, parent);
+    this.hint.textContent = "TAP TO CENTRE";
   }
   set(angle: number) {
     this.el.style.transform = `translate(-50%, -50%) rotate(${angle * 90}deg)`;
+  }
+  /** hit is generous: anywhere on or inside the ring. */
+  hit(x: number, y: number): boolean {
+    return Math.hypot(x - this.place.x, y - this.place.y) <= this.place.w / 2 + 16;
+  }
+  /** centred flashes the ring to confirm a re-centre. */
+  centred() {
+    this.el.classList.remove("centred");
+    void this.el.offsetWidth; // restart the flash
+    this.el.classList.add("centred");
   }
 }
 

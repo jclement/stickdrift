@@ -403,6 +403,22 @@ body {
   will-change: transform;
   pointer-events: none;
 }
+.wheel.centred { animation: wheel-centred 0.45s ease-out; }
+@keyframes wheel-centred {
+  from { box-shadow: 0 0 0 2px var(--rim), inset 0 0 30px rgb(0 0 0 / 0.5), 0 0 0 18px rgb(var(--accent-rgb) / 0.55); }
+}
+.wheel-hint {
+  display: grid;
+  place-items: center;
+  padding: 22%;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  color: var(--muted);
+  pointer-events: none;
+}
 .wheel::before {
   content: "";
   position: absolute;
@@ -492,6 +508,20 @@ body {
   50% { transform: scale(1.8); opacity: 0.4; }
 }
 .hidden { display: none !important; }
+
+/* A tilt controller pinned to the phone (see tilt.ts): while it is shown,
+   the OS may rotate the page, so the whole page is drawn at the size it was
+   laid out at and turned back. A transformed body is also the box that its
+   fixed-position children (surface, HUD, overlays) are placed in. */
+body.pinned {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: var(--pin-w);
+  height: var(--pin-h);
+  transform: translate(-50%, -50%) rotate(var(--pin-rot, 0deg)) scale(var(--pin-scale, 1));
+}
+
 
 /* Homepage previews: no full-screen button, no rotate nag. */
 .preview #fullscreen,

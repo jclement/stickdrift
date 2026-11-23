@@ -83,6 +83,15 @@ Steer by tilting the phone (`lx`, plus `ly` for pitch, and the Left/Right
 bits); gas (A) and brake (B) under the thumbs. Landscape only. iPhones ask
 for motion permission on the first tap.
 
+Tilt is measured from however the player is holding the phone when the
+controller appears (upright like a wheel, tipped back, or flat), so there's
+no "correct" angle to hold it at. Tipping an edge down rolls toward it:
+right edge down is `lx` +1, top edge down is `ly` -1 (forward, up the
+screen). A tap on the wheel makes the current pose the new centre. Tilted
+phones love to auto-rotate; this controller ignores that: it stays put on
+the phone, turning itself back if the OS rotates the page, so steering
+never flips mid-turn.
+
 ```preview
 tilt color=#ff6fb5
 ```

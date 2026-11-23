@@ -59,6 +59,14 @@ phone (pad page) ──wss──▶ Worker ──▶ Session DO (one per room co
     55-65 ms relay (YVR edge) for the same pair of endpoints.
 10. **Vanilla DOM for the pad.** No framework between a touch and a frame;
     animations only touch transform, opacity and shadows.
+12. **Tilt is pinned to the phone, not the screen.** Tilting makes phones
+    auto-rotate (iOS can't lock orientation). While the `tilt` controller is
+    up, steering is measured from a calibrated neutral pose in the device's
+    own axes (a gravity vector, not raw Euler angles, which wrap near flat
+    and upright), and the page counter-rotates with a CSS transform when the
+    OS rotates, instead of relaying out or asking the player to turn. Other
+    layouts aren't tilted in play, so a rotation there is a real change of
+    grip and they still follow the OS (`src/client/pad/tilt.ts`).
 
 ## Known limitations
 
@@ -69,4 +77,7 @@ phone (pad page) ──wss──▶ Worker ──▶ Session DO (one per room co
   fall back to the relay.
 - Rooms trust anyone with the code to join as a pad; that's the point. Hosts
   can close the room (`open:false`) or kick.
-- Tilt steering assumes landscape and is not calibrated.
+- Tilt steering is calibrated to the pose held when the tilt controller
+  appears (tap the wheel to re-centre). It can't tell a deliberate 180° turn
+  from the OS flipping a nearly flat phone, so the picture stays pinned until
+  a re-centre while the phone is clearly held the other way up.
