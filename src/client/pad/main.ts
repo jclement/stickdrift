@@ -648,6 +648,9 @@ function start() {
 (window as unknown as { __pad: unknown }).__pad = {
   debug: () => transport?.debug,
   press: (b: "A" | "B", on: boolean) => input.set(b, on),
+  // Sends a raw screen event, bypassing the page: e2e scripts use it to
+  // prove hosts drop answers to screens that are no longer current.
+  event: (m: ScreenEvent) => transport?.sendEvent(m),
 };
 // Exposed for the homepage's layout gallery and debugging.
 (window as unknown as { __layouts: typeof LAYOUTS }).__layouts = LAYOUTS;
