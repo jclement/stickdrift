@@ -136,11 +136,48 @@ func TestEventWindow(t *testing.T) {
 		{"a", maxEventN, true}, {"a", 1, false}, {"a", maxEventN, false}, {"a", maxEventN + 1, false},
 		// A new page (session) starts afresh; the old one's copies are refused.
 		{"b", 1, true}, {"b", 1, false}, {"b", 2, true},
+		// Going back to a retired session must not reset anything: a late
+		// copy from the old page and the new page's duplicate are both old.
+		{"old", 12, true}, {"new", 1, true}, {"old", 12, false}, {"new", 1, false},
 	}
 	for i, st := range steps {
 		if got := w.accept(st.s, st.n); got != st.ok {
 			t.Fatalf("step %d: accept(%q, %d) = %v, want %v", i, st.s, st.n, got, st.ok)
 		}
+	}
+}
+
+// TestEventWindowKeepsRecentSessions: the last few sessions keep their
+// history; only one evicted long ago starts over.
+func TestEventWindowKeepsRecentSessions(t *testing.T) {
+	var w eventWindow
+	for _, s := range []string{"s1", "s2", "s3", "s4"} {
+		w.accept(s, 1)
+	}
+	if w.accept("s1", 1) {
+		t.Fatal("s1 is one of the last four sessions; its copy is old")
+	}
+	w.accept("s5", 1) // evicts s2, the least recently used
+	if !w.accept("s2", 1) {
+		t.Fatal("an evicted session starts over (bounded memory)")
+	}
+}
+
+// TestRelayEventsAreAcknowledged: an event the relay forwards is
+// acknowledged back through the relay, duplicates and stale ones too, so
+// the phone stops retrying only once the game has it.
+func TestRelayEventsAreAcknowledged(t *testing.T) {
+	r := newFakeRelay(t)
+	h := startHost(t, r, Options{Look: Look{Layout: "screen", Screen: &Screen{ID: "s", Items: []Element{{Type: ElemButton, ID: "go", Label: "GO"}}}}})
+	join(t, r, h, 3)
+	for range 2 {
+		r.sendJSON(map[string]any{"t": "event", "pad": 3, "s": "page", "n": 5, "screen": "s", "element": "go"})
+		if m := r.expect("ack"); m["pad"] != 3.0 || m["n"] != 5.0 || m["s"] != "page" {
+			t.Fatalf("ack = %v", m)
+		}
+	}
+	if got := h.Events(); len(got) != 1 {
+		t.Fatalf("events = %+v", got)
 	}
 }
 

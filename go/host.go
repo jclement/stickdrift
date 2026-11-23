@@ -576,6 +576,11 @@ func (h *Host) onMessage(data []byte) bool {
 		var w wireEvent
 		if json.Unmarshal(data, &w) == nil {
 			h.onEvent(w.Pad, w)
+			// Acknowledge it (duplicates and stale ones too), through the
+			// relay to the phone, which retries until someone has it.
+			if w.N > 0 {
+				h.send(map[string]any{"t": "ack", "pad": w.Pad, "n": w.N, "s": w.S})
+			}
 		}
 	case "error":
 		h.mu.Lock()

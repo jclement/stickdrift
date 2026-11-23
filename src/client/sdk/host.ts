@@ -347,6 +347,9 @@ export class StickDriftHost {
         break;
       case "event":
         this.onEvent(m.pad, m);
+        // Acknowledge it (duplicates and stale ones too), through the relay
+        // to the phone, which keeps retrying until someone has it.
+        if (Number.isInteger(m.n) && m.n > 0) this.send({ t: "ack", pad: m.pad, n: m.n, ...(m.s ? { s: m.s } : {}) });
         break;
       case "leave":
         this.leave(m.pad);

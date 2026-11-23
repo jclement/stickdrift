@@ -129,8 +129,10 @@ into markup.
 
 ## Safety
 
-Answers are delivered reliably: the phone keeps each one, resending it,
-until the relay or the game acknowledges it, and the host libraries count
+Answers are delivered reliably: the phone keeps each one, resending it
+with backoff, until the game acknowledges it (the host libraries do this
+for you; the relay only acknowledges answers it refuses), even across a
+game restart, and the host libraries count
 each answer once however many copies arrive (also across reconnects).
 
 Screens are validated like custom layouts, on the relay and again on the

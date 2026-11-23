@@ -137,6 +137,17 @@ describe("EventWindow", () => {
     expect(w.accept("a", MAX_EVENT_N - 63)).toBe(true);
     expect(w.accept("a", MAX_EVENT_N - 64)).toBe(false);
   });
+  it("never resets history when traffic returns to a retired session", () => {
+    const w = new EventWindow();
+    expect([w.accept("old", 12), w.accept("new", 1), w.accept("old", 12), w.accept("new", 1)]).toEqual([true, true, false, false]);
+  });
+  it("keeps the last four sessions; an evicted one starts over", () => {
+    const w = new EventWindow();
+    for (const s of ["s1", "s2", "s3", "s4"]) w.accept(s, 1);
+    expect(w.accept("s1", 1)).toBe(false);
+    w.accept("s5", 1); // evicts s2
+    expect(w.accept("s2", 1)).toBe(true);
+  });
   it("keeps de-duplicating within a session and restarts for a new one", () => {
     const w = new EventWindow();
     expect([w.accept("p1", 12), w.accept("p1", 12), w.accept("p1", 11), w.accept("p2", 1), w.accept("p2", 1)]).toEqual([true, false, true, true, false]);
@@ -208,16 +219,35 @@ describe("relay: screens", () => {
     await host.none("event");
   });
 
-  it("acknowledges every event it receives, forwarded or not, so the phone stops retrying", async () => {
+  it("passes the host's acknowledgement back, and acknowledges refused answers itself", async () => {
     const { host, pad } = await room("phone-screen06");
     host.send({ t: "pad", pad: 0, layout: "screen", screen: hand });
     await pad.next("setup");
     pad.send({ t: "event", s: "page1", n: 1, screen: "r1", element: "ready" });
-    expect(await pad.next("ack")).toEqual({ t: "ack", n: 1, s: "page1" });
     expect(await host.next("event")).toMatchObject({ s: "page1", n: 1, element: "ready" });
+    await pad.none("ack"); // forwarded: only the host can say it has it
+    host.send({ t: "ack", pad: 0, n: 1, s: "page1" });
+    expect(await pad.next("ack")).toEqual({ t: "ack", n: 1, s: "page1" });
     pad.send({ t: "event", s: "page1", n: 2, screen: "stale", element: "ready" });
-    expect(await pad.next("ack")).toEqual({ t: "ack", n: 2, s: "page1" });
+    expect(await pad.next("ack")).toEqual({ t: "ack", n: 2, s: "page1" }); // refused: stop retrying
     await host.none("event");
+  });
+
+  it("does not acknowledge an answer while the game is away; the retry after it returns is delivered", async () => {
+    const { code, host, pad } = await room("phone-screen07");
+    host.send({ t: "pad", pad: 0, layout: "screen", screen: hand });
+    await pad.next("setup");
+    host.ws.close(1000);
+    await pad.next("host"); // { online: false }
+    const answer = { t: "event", s: "page1", n: 1, screen: "r1", element: "ready" };
+    pad.send(answer); // in flight while the game is gone
+    await pad.none("ack");
+    const back = await open(`/ws/host/${code}?key=${KEY}`);
+    await back.next("welcome");
+    pad.send(answer); // the phone's retry
+    expect(await back.next("event")).toMatchObject({ s: "page1", n: 1, element: "ready", pad: 0 });
+    back.send({ t: "ack", pad: 0, n: 1, s: "page1" });
+    expect(await pad.next("ack")).toEqual({ t: "ack", n: 1, s: "page1" });
   });
 
   it("falls back to the room's screen when a pad's own is cleared", async () => {

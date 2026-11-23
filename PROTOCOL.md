@@ -29,6 +29,7 @@ minutes after the host disconnects; an unhosted room is wiped after 6 hours.
 | `{"t":"pad","pad":3, …look fields…}` | Change one pad's look. |
 | `{"t":"haptic","pad":3,"ms":40}` | Vibrate a phone. `ms` may be a pattern array. Android only; iOS ignores it. |
 | `{"t":"kick","pad":3}` | Disconnect a phone and forget its seat. |
+| `{"t":"ack","pad":3,"n":7,"s":"…"}` | Acknowledge a screen event (see [Screens](#screens)). |
 | `{"t":"ping"}` | Answered with `{"t":"pong"}` (exact strings) for round-trip timing. |
 
 ### Relay -> host
@@ -209,11 +210,17 @@ page load) and `n` counts up from 1 within it (at most 2^31).
 
 **Delivery.** The phone sends each event over the data channel (if open)
 and the relay, and keeps it until it is acknowledged with
-`{"t":"ack","n":7,"s":"…"}`: the relay acknowledges every event it receives
-(forwarded or not), and a host acknowledges events it receives on the data
-channel by sending the same text back on it. Until then the phone resends
-it on the channel every 250 ms, and on the relay every 3 s and whenever the
-relay reconnects. Relay → pad also gains `{"t":"ack",…}`. The relay forwards it, with
+`{"t":"ack","n":7,"s":"…"}`. The **host** acknowledges every event it
+receives: on the data channel by sending that text back on it, and from the
+relay by sending `{"t":"ack","pad":3,"n":7,"s":"…"}` to the relay, which
+passes it to that phone. The relay acknowledges only events it refuses
+(stale or invalid: they will never be wanted). With no host connected
+nothing is acknowledged, so the answer survives a game restart. Until
+acknowledged, the phone resends each event on its own backoff: on the
+channel after 250 ms, then 500 ms, 1 s, 2 s and every 4 s; on the relay
+after 3 s, then 6 s and every 10 s, and at once whenever the relay
+reconnects. It keeps at most 32 unacknowledged events (the oldest go
+first). The relay forwards it, with
 `pad` added and the value cleaned, only if it answers the screen that pad
 shows now (`screen` matches, the element exists, is interactive and
 enabled, the screen isn't locked, the value fits the element); it never
@@ -221,9 +228,10 @@ forwards events for a pad whose layout isn't `screen`.
 
 Hosts must apply the same check to events from the data channel, and must
 drop copies, which arrive by both paths, retried, out of order and across
-reconnects: keep, per pad, the session `s`, the highest `n` seen in it and
-which of the 64 below it have been; accept an `n` once; start afresh only
-when `s` changes (a reloaded page), **not** when the pad reconnects. Check
+reconnects: keep, per pad and per session `s` (for the last 4 sessions
+seen), the highest `n` and which of the 64 below it have been; accept an
+`n` once. A reconnect changes nothing, and a late copy from an older page
+meets its own session's history rather than resetting anyone's. Check
 the screen against the screen as the relay normalised it (the rules
 above), which is what the phone shows.
 

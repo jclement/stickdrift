@@ -358,6 +358,179 @@
   }
  },
  {
+  "name": "caps apply to the list as sent, before duplicates and bad ids are dropped",
+  "raw": {
+   "id": "order",
+   "items": [
+    {
+     "type": "cards",
+     "id": "hand",
+     "pick": 2,
+     "cards": [
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c1",
+       "text": "same"
+      },
+      {
+       "id": "c2",
+       "text": "13th, never shown"
+      }
+     ]
+    },
+    {
+     "type": "choices",
+     "id": "vote",
+     "pick": 2,
+     "options": [
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "bad id",
+       "text": "x"
+      },
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "b",
+       "text": "16th"
+      },
+      {
+       "id": "c",
+       "text": "17th, never shown"
+      }
+     ]
+    }
+   ]
+  },
+  "want": {
+   "id": "order",
+   "items": [
+    {
+     "type": "cards",
+     "id": "hand",
+     "cards": [
+      {
+       "id": "c1",
+       "text": "same"
+      }
+     ],
+     "pick": 1
+    },
+    {
+     "type": "choices",
+     "id": "vote",
+     "options": [
+      {
+       "id": "a",
+       "text": "x"
+      },
+      {
+       "id": "b",
+       "text": "16th"
+      }
+     ],
+     "pick": 2
+    }
+   ]
+  }
+ },
+ {
   "name": "items past 24 are dropped",
   "raw": {
    "id": "many",

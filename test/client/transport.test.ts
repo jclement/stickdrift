@@ -93,6 +93,24 @@ describe("Transport", () => {
     expect(t.debug.events).toBe(1);
   });
 
+  it("backs off retries and sends only the new answer when one is added", async () => {
+    const { t, ws, dc } = await start();
+    ws.drop(); // relay down: nothing gets acknowledged
+    const isEvent = (d: unknown) => typeof d === "string" && d.startsWith('{"t":"event"');
+    for (let n = 1; n <= 32; n++) {
+      const before = (dc.sent as unknown[]).filter(isEvent).length;
+      t.sendEvent({ t: "event", s: "p", n, screen: "r1", element: "ready" });
+      expect((dc.sent as unknown[]).filter(isEvent).length - before).toBe(1); // just the new one
+    }
+    dc.sent.length = 0;
+    await settle(2000);
+    // Backoff: each answer is resent at most ~3 times in 2 s (0.25, 0.75,
+    // 1.75 s after it was sent), so 32 pending can't flood the channel.
+    const resent = (dc.sent as unknown[]).filter(isEvent).length;
+    expect(resent).toBeLessThanOrEqual(32 * 3);
+    expect(resent).toBeGreaterThanOrEqual(32); // but they are retried
+  });
+
   it("uses the relay while the channel is still connecting", async () => {
     const { t, ws } = await start({ open: false });
     t.sendFrame(frame(1));

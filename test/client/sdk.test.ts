@@ -328,6 +328,15 @@ describe("StickDriftHost screens", () => {
     expect(host.events()).toHaveLength(1);
   });
 
+  it("acknowledges answers from the relay, through the relay", () => {
+    const { host, ws } = track(start([0]));
+    host.setPad(0, { layout: "screen", screen: hand });
+    ws.json({ ...ev(4, "r1", "ready"), s: "p" });
+    ws.json({ ...ev(4, "r1", "ready"), s: "p" }); // a retry: still acknowledged
+    expect(ws.messages("ack")).toEqual([{ t: "ack", pad: 0, n: 4, s: "p" }, { t: "ack", pad: 0, n: 4, s: "p" }]);
+    expect(host.events()).toHaveLength(1);
+  });
+
   it("acknowledges answers on the data channel", async () => {
     const { host, ws } = track(start([0]));
     host.setPad(0, { layout: "screen", screen: hand });

@@ -59,6 +59,8 @@ export interface Debug {
   p2pRtt: Stats;
   framesSent: number;
   events: number; // screen answers sent
+  eventSends: number; // copies of them sent, retries included
+  pendingEvents: number; // answers not yet acknowledged
   framesP2P: number;
   framesRelay: number;
   repeats: number;
@@ -70,7 +72,19 @@ export interface Debug {
 
 const REPEAT_DELAYS = [25, 80]; // ms after a change to resend over P2P
 const MAX_PENDING_EVENTS = 32; // unacknowledged screen answers kept for retrying
-const EVENT_RELAY_RETRY_MS = 3000; // resend an unacknowledged answer over the relay this often
+const EVENT_DC_RETRY_MS = 250; // first resend of an unacknowledged answer on the channel; doubles each time
+const EVENT_DC_RETRY_MAX_MS = 4000; // ...up to this
+const EVENT_RELAY_RETRY_MS = 3000; // first resend over the relay; doubles each time
+const EVENT_RELAY_RETRY_MAX_MS = 10000; // ...up to this
+
+/** A screen answer awaiting acknowledgement, with its retry schedule. */
+interface PendingEvent {
+  text: string;
+  tries: number; // channel resends so far
+  dcAt: number; // last channel send
+  relayAt: number; // last relay send
+  relayTries: number;
+}
 const TICK_MS = 250; // keepalive, P2P ping and liveness check period
 const RELAY_PING_MS = 1000; // relay round-trip sampling period
 const STALE_MS = 1000; // no echo for this long: stop trusting the channel
@@ -84,14 +98,14 @@ const HOST_BACK_CHECK_MS = 1500; // after the game reconnects, verify the channe
 export class Transport {
   debug: Debug = {
     path: "none", wsState: "closed", iceState: "new", dcState: "none", candidate: "",
-    relayRtt: new Stats(), p2pRtt: new Stats(), framesSent: 0, events: 0, framesP2P: 0, framesRelay: 0,
+    relayRtt: new Stats(), p2pRtt: new Stats(), framesSent: 0, events: 0, eventSends: 0, pendingEvents: 0, framesP2P: 0, framesRelay: 0,
     repeats: 0, reconnects: 0, p2pAttempts: 0, p2pFallbacks: 0, hostP2P: false,
   };
   private ws: WebSocket | null = null;
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
   private last: ArrayBuffer | null = null;
-  private pendingEvents = new Map<number, { text: string; relayAt: number }>(); // screen answers awaiting acknowledgement, by n
+  private pendingEvents = new Map<number, PendingEvent>(); // screen answers awaiting acknowledgement, by n
   private repeatTimers: ReturnType<typeof setTimeout>[] = [];
   private backoff = 250;
   private pingAt = 0;
@@ -129,7 +143,7 @@ export class Transport {
       this.debug.wsState = "open";
       this.changed();
       if (this.last) this.sendFrame(this.last);
-      this.transmitEvents(true); // anything unacknowledged, now that the relay is back
+      this.flushEvents(); // anything unacknowledged, now that the relay is back
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data !== "string") return;
@@ -203,19 +217,23 @@ export class Transport {
     }
   }
 
-  /** sendEvent sends a screen answer and keeps it until it is acknowledged.
-   *  An answer is said once, and the data channel is unreliable
-   *  (maxRetransmits 0), so: send it by every open path, keep it pending,
-   *  resend it while unacknowledged (the channel every tick, the relay
-   *  every few seconds and whenever it reconnects), and drop it when the
-   *  relay or the host acknowledges it. Hosts de-duplicate by (s, n), so
-   *  the extra copies never count twice. */
+  /** sendEvent sends a screen answer and keeps it until the host
+   *  acknowledges it (through the relay or on the data channel; the relay
+   *  acknowledges only answers it refuses). An answer is said once and the
+   *  data channel is unreliable (maxRetransmits 0), so: send it by every
+   *  open path, then resend it while unacknowledged, backing off (channel
+   *  after 250 ms, 500, 1 s, 2 s, then every 4 s; relay every 3 s, then 6,
+   *  then 10) and in full whenever the relay reconnects. Hosts de-duplicate
+   *  by (s, n), so the extra copies never count twice. */
   sendEvent(m: ScreenEvent) {
     const text = JSON.stringify(m);
     this.debug.events++;
-    this.pendingEvents.set(m.n, { text, relayAt: 0 });
+    const now = performance.now();
+    const p: PendingEvent = { text, tries: 0, dcAt: now, relayAt: now, relayTries: 0 };
+    this.pendingEvents.set(m.n, p);
     while (this.pendingEvents.size > MAX_PENDING_EVENTS) this.pendingEvents.delete(this.pendingEvents.keys().next().value!);
-    this.transmitEvents(true);
+    this.debug.pendingEvents = this.pendingEvents.size;
+    this.transmit(p, true, true); // only this one: the others have their own schedule
   }
 
   /** pendingCount is how many answers await acknowledgement. */
@@ -223,28 +241,48 @@ export class Transport {
     return this.pendingEvents.size;
   }
 
-  /** transmitEvents (re)sends pending answers: over the channel always,
-   *  over the relay when due (or now, if force). */
-  private transmitEvents(force: boolean) {
+  /** transmit sends one pending answer by the channel and/or the relay. */
+  private transmit(p: PendingEvent, channel: boolean, relay: boolean) {
+    if (channel && this.dcOpen()) {
+      try {
+        this.dc!.send(p.text);
+        this.debug.eventSends++;
+      } catch {
+        // Closing under us; the relay copy still goes.
+      }
+    }
+    if (relay && this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(p.text);
+      this.debug.eventSends++;
+    }
+  }
+
+  /** retryEvents resends the pending answers that are due, each on its own
+   *  backoff, so many unacknowledged answers stay a trickle. */
+  private retryEvents(now: number) {
+    for (const p of this.pendingEvents.values()) {
+      const dcDue = now - p.dcAt >= Math.min(EVENT_DC_RETRY_MS * 2 ** p.tries, EVENT_DC_RETRY_MAX_MS);
+      const relayDue = now - p.relayAt >= Math.min(EVENT_RELAY_RETRY_MS * 2 ** p.relayTries, EVENT_RELAY_RETRY_MAX_MS);
+      if (dcDue) (p.dcAt = now), p.tries++;
+      if (relayDue) (p.relayAt = now), p.relayTries++;
+      if (dcDue || relayDue) this.transmit(p, dcDue, relayDue);
+    }
+  }
+
+  /** flushEvents resends every pending answer over the relay (it just
+   *  reconnected, and may have missed them). */
+  private flushEvents() {
     const now = performance.now();
     for (const p of this.pendingEvents.values()) {
-      if (this.dcOpen()) {
-        try {
-          this.dc!.send(p.text);
-        } catch {
-          // Closing under us; the relay copy still goes.
-        }
-      }
-      if (this.ws?.readyState === WebSocket.OPEN && (force || now - p.relayAt >= EVENT_RELAY_RETRY_MS)) {
-        this.ws.send(p.text);
-        p.relayAt = now;
-      }
+      p.relayAt = now;
+      this.transmit(p, false, true);
     }
   }
 
   /** onAck forgets an acknowledged answer. */
   private onAck(n: unknown) {
     if (typeof n === "number") this.pendingEvents.delete(n);
+    this.debug.pendingEvents = this.pendingEvents.size;
   }
 
   /** sendJSON sends a control message over the relay. */
@@ -474,7 +512,7 @@ export class Transport {
 
   /** tick runs every 250 ms: P2P ping and keepalive, liveness, restarts. */
   private tick() {
-    if (this.pendingEvents.size) this.transmitEvents(false);
+    if (this.pendingEvents.size) this.retryEvents(performance.now());
     if (!this.dcOpen()) return;
     const b = new ArrayBuffer(8);
     const v = new DataView(b);

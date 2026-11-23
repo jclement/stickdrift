@@ -73,27 +73,20 @@ export interface PadState {
   py: number;
 }
 
-/** EventWindow de-duplicates one phone's screen events: per event session
- *  (a phone page load), the highest counter seen and which of the 64 below
- *  it have been. Copies arrive by both paths, retried, out of order, and
- *  across reconnects; only a new session starts afresh. go/screen.go
- *  eventWindow matches. */
-export class EventWindow {
-  private session: string | undefined = undefined;
+/** How many event sessions a host remembers per seat. A reload starts a new
+ *  session; remembering the last few means a late copy from a retired page
+ *  meets its own history instead of being mistaken for something new. */
+export const EVENT_SESSIONS_KEPT = 4;
+
+/** One session's history: the highest counter seen and which of the 64
+ *  below it have been. */
+class SessionWindow {
   private high = 0;
   private bits = 0n; // bit i: high - i seen
 
-  /** accept reports whether (session, n) is new, and records it. */
-  accept(session: string | undefined, n: number): boolean {
-    if (!Number.isInteger(n) || n < 1 || n > MAX_EVENT_N) return false;
-    if (this.high === 0 || session !== this.session) {
-      this.session = session;
-      this.high = n;
-      this.bits = 1n;
-      return true;
-    }
-    if (n > this.high) {
-      const shift = n - this.high;
+  accept(n: number): boolean {
+    if (this.high === 0 || n > this.high) {
+      const shift = this.high === 0 ? 64 : n - this.high;
       this.bits = shift >= 64 ? 1n : ((this.bits << BigInt(shift)) | 1n) & 0xffffffffffffffffn;
       this.high = n;
       return true;
@@ -106,6 +99,26 @@ export class EventWindow {
     if (this.bits & bit) return false;
     this.bits |= bit;
     return true;
+  }
+}
+
+/** EventWindow de-duplicates one seat's screen events. Copies arrive by both
+ *  paths, retried, out of order and across reconnects, so it keeps a window
+ *  per event session (a phone page load), for the last EVENT_SESSIONS_KEPT
+ *  sessions used: switching sessions never resets another's history.
+ *  go/screen.go eventWindow matches. */
+export class EventWindow {
+  private sessions = new Map<string, SessionWindow>(); // most recently used last
+
+  /** accept reports whether (session, n) is new, and records it. */
+  accept(session: string | undefined, n: number): boolean {
+    if (!Number.isInteger(n) || n < 1 || n > MAX_EVENT_N) return false;
+    const key = session ?? "";
+    const w = this.sessions.get(key) ?? new SessionWindow();
+    this.sessions.delete(key);
+    this.sessions.set(key, w);
+    while (this.sessions.size > EVENT_SESSIONS_KEPT) this.sessions.delete(this.sessions.keys().next().value!);
+    return w.accept(n);
   }
 }
 
@@ -607,7 +620,8 @@ export type HostMessage =
   | { t: "signal"; pad: number; data: Signal }
   | ({ t: "pad"; pad: number } & PadLook)
   | { t: "haptic"; pad: number; ms: number | number[] }
-  | { t: "kick"; pad: number };
+  | { t: "kick"; pad: number }
+  | { t: "ack"; pad: number; n: number; s?: string }; // the host has a pad's screen event: tell the phone to stop retrying
 
 /** Relay -> host. */
 export type ToHostMessage =

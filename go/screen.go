@@ -316,31 +316,24 @@ func truncateRunes(s string, n int) string {
 // maxEventN is the highest event counter the relay accepts.
 const maxEventN = 1 << 31
 
-// eventWindow de-duplicates a phone's events. Each carries a counter n
-// within an event session s (one per phone page load). Copies arrive twice
-// (data channel and relay), retried until acknowledged, out of order (the
-// channel is unordered) and across reconnects, so remember, per session,
-// the highest n seen and which of the 64 before it have been. Only a new
-// session starts afresh; a reconnect does not. EventWindow in
-// src/shared/protocol.ts matches.
-type eventWindow struct {
+// eventSessionsKept is how many event sessions a host remembers per seat.
+// A reload starts a new session; remembering the last few means a late copy
+// from a retired page meets its own history instead of looking new.
+const eventSessionsKept = 4
+
+// sessionWindow is one event session's history: the highest counter seen
+// and which of the 64 below it have been.
+type sessionWindow struct {
 	session string
 	high    int64
 	seen    uint64 // bit i: high-i has been seen
 }
 
-// accept reports whether (s, n) is new, and records it.
-func (w *eventWindow) accept(s string, n int64) bool {
-	if n <= 0 || n > maxEventN {
-		return false
-	}
-	if w.high == 0 || s != w.session {
-		w.session, w.high, w.seen = s, n, 1
-		return true
-	}
-	if n > w.high {
+// accept reports whether n is new in this session, and records it.
+func (w *sessionWindow) accept(n int64) bool {
+	if w.high == 0 || n > w.high {
 		shift := n - w.high
-		if shift >= 64 {
+		if w.high == 0 || shift >= 64 {
 			w.seen = 0
 		} else {
 			w.seen <<= uint(shift)
@@ -355,6 +348,43 @@ func (w *eventWindow) accept(s string, n int64) bool {
 	}
 	w.seen |= 1 << uint(back)
 	return true
+}
+
+// eventWindow de-duplicates one seat's screen events. Each carries a
+// counter n within an event session s (one per phone page load). Copies
+// arrive twice (data channel and relay), retried until acknowledged, out of
+// order and across reconnects, so it keeps a window per session for the
+// last eventSessionsKept sessions used: switching sessions never resets
+// another's history. A fixed array, not a slice, so Pad stays comparable.
+// EventWindow in src/shared/protocol.ts matches.
+type eventWindow struct {
+	sessions [eventSessionsKept]sessionWindow
+	used     [eventSessionsKept]uint64 // when each slot was last used; 0 = empty
+	clock    uint64
+}
+
+// accept reports whether (s, n) is new, and records it.
+func (w *eventWindow) accept(s string, n int64) bool {
+	if n <= 0 || n > maxEventN {
+		return false
+	}
+	w.clock++
+	slot, oldest := -1, 0
+	for i := range w.sessions {
+		if w.used[i] != 0 && w.sessions[i].session == s {
+			slot = i
+			break
+		}
+		if w.used[i] < w.used[oldest] {
+			oldest = i
+		}
+	}
+	if slot < 0 { // a session we don't remember: take the least recently used slot
+		slot = oldest
+		w.sessions[slot] = sessionWindow{session: s}
+	}
+	w.used[slot] = w.clock
+	return w.sessions[slot].accept(n)
 }
 
 // Text limits, as cleanScreen applies them (characters).
@@ -426,10 +456,11 @@ func (s *Screen) normalize() *Screen {
 			}
 		case ElemCards:
 			seen := map[string]bool{}
-			for _, c := range in.Cards {
-				if len(e.Cards) == MaxCards {
-					break
-				}
+			cards := in.Cards // cut before filtering, as the relay does
+			if len(cards) > MaxCards {
+				cards = cards[:MaxCards]
+			}
+			for _, c := range cards {
 				if !validID(c.ID, maxElementIDLen) || seen[c.ID] {
 					continue
 				}
@@ -442,10 +473,11 @@ func (s *Screen) normalize() *Screen {
 			e.Pick, e.Submit = max(1, min(MaxPick, in.Pick, len(e.Cards))), submit
 		case ElemChoices:
 			seen := map[string]bool{}
-			for _, o := range in.Options {
-				if len(e.Options) == MaxOptions {
-					break
-				}
+			options := in.Options // cut before filtering, as the relay does
+			if len(options) > MaxOptions {
+				options = options[:MaxOptions]
+			}
+			for _, o := range options {
 				if !validID(o.ID, maxElementIDLen) || seen[o.ID] {
 					continue
 				}

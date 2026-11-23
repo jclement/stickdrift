@@ -241,15 +241,20 @@ export class Session extends DurableObject<Env> {
     }
     if (m.t === "signal" && m.data && typeof m.data === "object") this.toHost({ t: "signal", pad: a.pad, data: m.data });
     if (m.t === "event") {
-      // Acknowledge receipt, forwarded or not, so the phone stops retrying:
-      // from here to the host is a reliable socket, and a stale answer will
-      // never become current.
+      // Only an answer to the screen this pad shows now, with a clean value,
+      // goes on; the host acknowledges it (an "ack" we pass back), which is
+      // what lets the phone stop retrying. With no host here nothing is
+      // acknowledged, so the phone keeps the answer and resends it once the
+      // game is back. An answer we refuse never will be wanted (screen ids
+      // are not reused), so we acknowledge that ourselves.
+      const ev = this.room ? checkEvent(this.screenOf(this.room, a.pad), m) : null;
+      if (ev) {
+        this.toHost({ ...ev, pad: a.pad });
+        return;
+      }
       const n = (m as { n?: unknown }).n;
       const s = (m as { s?: unknown }).s;
       if (typeof n === "number" && Number.isInteger(n) && n > 0) this.sendJSON(ws, { t: "ack", n, ...(typeof s === "string" ? { s: s.slice(0, 32) } : {}) } satisfies ToPadMessage);
-      // Only an answer to the screen this pad shows now, with a clean value.
-      const ev = this.room ? checkEvent(this.screenOf(this.room, a.pad), m) : null;
-      if (ev) this.toHost({ ...ev, pad: a.pad });
     }
   }
 
@@ -285,6 +290,12 @@ export class Session extends DurableObject<Env> {
       }
       case "signal":
         if (m.data && typeof m.data === "object") for (const ws of this.padSocketsFor(m.pad)) this.sendJSON(ws, { t: "signal", data: m.data });
+        return;
+      case "ack":
+        // The host has a screen event; the phone can stop retrying it.
+        if (Number.isInteger(m.n) && m.n > 0) {
+          for (const ws of this.padSocketsFor(m.pad)) this.sendJSON(ws, { t: "ack", n: m.n, ...(typeof m.s === "string" ? { s: m.s.slice(0, 32) } : {}) } satisfies ToPadMessage);
+        }
         return;
       case "haptic":
         for (const ws of this.padSocketsFor(m.pad)) this.sendJSON(ws, { t: "haptic", ms: m.ms });

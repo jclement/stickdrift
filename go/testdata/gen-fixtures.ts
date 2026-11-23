@@ -28,6 +28,10 @@ const cases: { name: string; raw: unknown }[] = [
     { type: "button", id: "b", label: "duplicate id" },
     { type: "button", label: "no id" },
   ] } },
+  { name: "caps apply to the list as sent, before duplicates and bad ids are dropped", raw: { id: "order", items: [
+    { type: "cards", id: "hand", pick: 2, cards: [...Array.from({ length: 12 }, () => ({ id: "c1", text: "same" })), { id: "c2", text: "13th, never shown" }] },
+    { type: "choices", id: "vote", pick: 2, options: [...Array.from({ length: 15 }, (_, i) => ({ id: i % 2 ? "bad id" : "a", text: "x" })), { id: "b", text: "16th" }, { id: "c", text: "17th, never shown" }] },
+  ] } },
   { name: "items past 24 are dropped", raw: { id: "many", items: Array.from({ length: 30 }, (_, i) => ({ type: "text", text: `line ${i}` })) } },
   { name: "a bad screen id refuses the screen", raw: { id: "no spaces", items: [] } },
 ];
