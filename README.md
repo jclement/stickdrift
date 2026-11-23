@@ -15,8 +15,10 @@ Live at **https://stickdrift.net** (try `/demo`). See it in a real game:
 **https://brainfart.stickdrift.net** (BRAINFART!, a voiced party quiz show),
 **https://spacejunk.stickdrift.net** (SPACEJUNK!, a narrated gravity-well dogfight),
 **https://snitch.stickdrift.net** (SNITCH!, a heist with a secret traitor),
-**https://dontpressit.stickdrift.net** (DON'T PRESS IT!, one giant button and a smug host) and
-**https://allin.stickdrift.net** (ALL IN!, cheeky cartoon strip poker).
+**https://dontpressit.stickdrift.net** (DON'T PRESS IT!, one giant button and a smug host),
+**https://allin.stickdrift.net** (ALL IN!, cheeky cartoon strip poker),
+**https://poopdeck.stickdrift.net** (POOP DECK!, pirate crews sharing one ship) and
+**https://marblemayhem.stickdrift.net** (MARBLE MAYHEM!, tilt-to-roll marbles).
 
 ## Quick start
 

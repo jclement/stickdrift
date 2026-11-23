@@ -1,7 +1,8 @@
 # Building party games
 
 The games on [stickdrift.net](https://stickdrift.net) (KABOOM!, SKIDMARK!, BRAINFART!,
-SPACEJUNK!, SNITCH!, DON'T PRESS IT! and ALL IN!) were built by an AI coding agent (Claude) working with one person: KABOOM!
+SPACEJUNK!, SNITCH!, DON'T PRESS IT!, ALL IN!, POOP DECK! and MARBLE MAYHEM!) were built by AI coding
+agents (Claude, and Codex for the last two) working with one person: KABOOM!
 first, then the others from a short brief plus a skill file distilled from it. This page
 describes the recipe, so you can do the same: what the pieces are, why each was chosen, and
 a prompt to start from.
