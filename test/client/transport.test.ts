@@ -93,6 +93,21 @@ describe("Transport", () => {
     expect(t.debug.events).toBe(1);
   });
 
+  it("clears an answer only for an ack with its session and counter, on both paths", async () => {
+    const { t, ws, dc } = await start();
+    t.sendEvent({ t: "event", s: "page2", n: 1, screen: "r1", element: "ready" });
+    ws.json({ t: "ack", n: 1, s: "page1" }); // relay: an old page's ack for the same counter
+    dc.message(JSON.stringify({ t: "ack", n: 1, s: "page1" }) as unknown as ArrayBuffer); // channel: likewise
+    ws.json({ t: "ack", n: 1 }); // no session at all
+    ws.json({ t: "ack", n: 2, s: "page2" }); // right session, wrong counter
+    expect(t.pendingCount).toBe(1);
+    dc.message(JSON.stringify({ t: "ack", n: 1, s: "page2" }) as unknown as ArrayBuffer);
+    expect(t.pendingCount).toBe(0);
+    t.sendEvent({ t: "event", s: "page2", n: 3, screen: "r1", element: "ready" });
+    ws.json({ t: "ack", n: 3, s: "page2" }); // the relay path clears it too
+    expect(t.pendingCount).toBe(0);
+  });
+
   it("backs off retries and sends only the new answer when one is added", async () => {
     const { t, ws, dc } = await start();
     ws.drop(); // relay down: nothing gets acknowledged

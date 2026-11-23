@@ -210,7 +210,9 @@ page load) and `n` counts up from 1 within it (at most 2^31).
 
 **Delivery.** The phone sends each event over the data channel (if open)
 and the relay, and keeps it until it is acknowledged with
-`{"t":"ack","n":7,"s":"…"}`. The **host** acknowledges every event it
+`{"t":"ack","n":7,"s":"…"}`, matching **both** `s` and `n` (counters restart
+with every page, so an ack for another session's `n` clears nothing; a
+missing `s` counts as `""`). Acks always echo the event's `s`. The **host** acknowledges every event it
 receives: on the data channel by sending that text back on it, and from the
 relay by sending `{"t":"ack","pad":3,"n":7,"s":"…"}` to the relay, which
 passes it to that phone. The relay acknowledges only events it refuses

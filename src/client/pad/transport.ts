@@ -77,6 +77,12 @@ const EVENT_DC_RETRY_MAX_MS = 4000; // ...up to this
 const EVENT_RELAY_RETRY_MS = 3000; // first resend over the relay; doubles each time
 const EVENT_RELAY_RETRY_MAX_MS = 10000; // ...up to this
 
+/** eventKey identifies an answer: its session and counter. A missing
+ *  session and an empty one are the same (Go sends "" for none). */
+function eventKey(s: string | undefined, n: number): string {
+  return `${s ?? ""}:${n}`;
+}
+
 /** A screen answer awaiting acknowledgement, with its retry schedule. */
 interface PendingEvent {
   text: string;
@@ -105,7 +111,7 @@ export class Transport {
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
   private last: ArrayBuffer | null = null;
-  private pendingEvents = new Map<number, PendingEvent>(); // screen answers awaiting acknowledgement, by n
+  private pendingEvents = new Map<string, PendingEvent>(); // screen answers awaiting acknowledgement, by eventKey(s, n)
   private repeatTimers: ReturnType<typeof setTimeout>[] = [];
   private backoff = 250;
   private pingAt = 0;
@@ -230,7 +236,7 @@ export class Transport {
     this.debug.events++;
     const now = performance.now();
     const p: PendingEvent = { text, tries: 0, dcAt: now, relayAt: now, relayTries: 0 };
-    this.pendingEvents.set(m.n, p);
+    this.pendingEvents.set(eventKey(m.s, m.n), p);
     while (this.pendingEvents.size > MAX_PENDING_EVENTS) this.pendingEvents.delete(this.pendingEvents.keys().next().value!);
     this.debug.pendingEvents = this.pendingEvents.size;
     this.transmit(p, true, true); // only this one: the others have their own schedule
@@ -279,9 +285,13 @@ export class Transport {
     }
   }
 
-  /** onAck forgets an acknowledged answer. */
-  private onAck(n: unknown) {
-    if (typeof n === "number") this.pendingEvents.delete(n);
+  /** onAck forgets an acknowledged answer: only the one with this session
+   *  AND counter. Counters restart with every page, so an ack for an older
+   *  session's n (a late echo, or one meant for a page that has since
+   *  reloaded) must not clear the current page's answer with the same n. */
+  private onAck(m: { n?: unknown; s?: unknown }) {
+    if (typeof m.n !== "number" || (m.s !== undefined && typeof m.s !== "string")) return;
+    this.pendingEvents.delete(eventKey(m.s, m.n));
     this.debug.pendingEvents = this.pendingEvents.size;
   }
 
@@ -306,7 +316,7 @@ export class Transport {
   // ---- Relay messages that steer P2P ----
 
   private onRelayMessage(m: ToPadMessage) {
-    if (m.t === "ack") return this.onAck(m.n);
+    if (m.t === "ack") return this.onAck(m);
     if (m.t === "signal") void this.onSignal(m.data);
     if (m.t === "setup") {
       this.debug.hostP2P = m.p2p;
@@ -425,8 +435,8 @@ export class Transport {
     if (typeof data === "string") {
       // The host acknowledging a screen answer.
       try {
-        const m = JSON.parse(data) as { t?: string; n?: unknown };
-        if (m.t === "ack") this.onAck(m.n);
+        const m = JSON.parse(data) as { t?: string; n?: unknown; s?: unknown };
+        if (m.t === "ack") this.onAck(m);
       } catch {
         // Not for us.
       }
